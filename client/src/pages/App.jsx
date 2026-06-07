@@ -6,6 +6,7 @@ import {
   addGoal as addGoalAPI,
   getGoals as getGoalsAPI,
   contributeGoal as contributeGoalAPI,
+  deleteGoal as deleteGoalAPI,
   logout as doLogout,
   onAuthChange,
 } from '../services/firebaseService';
@@ -32,35 +33,31 @@ const DEFAULT_CATEGORIES = [
 ];
 
 const NAV_ITEMS = [
-  { key: 'dashboard',   label: 'Dashboard',    icon: LayoutDashboard },
-  { key: 'transactions',label: 'Transactions', icon: ArrowLeftRight  },
-  { key: 'goals',       label: 'Goals',        icon: Target          },
-  { key: 'split',       label: 'Split',        icon: Scissors        },
-  { key: 'group-split', label: 'Group',        icon: Users           },
-  { key: 'profile',     label: 'Profile',      icon: UserCircle      },
+  { key: 'dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
+  { key: 'transactions', label: 'Transactions', icon: ArrowLeftRight  },
+  { key: 'goals',        label: 'Goals',        icon: Target          },
+  { key: 'split',        label: 'Split',        icon: Scissors        },
+  { key: 'group-split',  label: 'Group',        icon: Users           },
+  { key: 'profile',      label: 'Profile',      icon: UserCircle      },
 ];
 
 export default function App() {
-  const [user,         setUser]         = useState(null);
-  const [loading,      setLoading]      = useState(true);
-  const [currentPage,  setCurrentPage]  = useState('dashboard');
-  const [sidebarOpen,  setSidebarOpen]  = useState(false);
-  const [transactions, setTransactions] = useState([]);
-  const [goals,        setGoals]        = useState([]);
-  const [memos,        setMemos]        = useState([]);
-  const [splitExpenses,setSplitExpenses]= useState([]);
-  const [installPrompt,setInstallPrompt]= useState(null);
-  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [user,          setUser]          = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [currentPage,   setCurrentPage]   = useState('dashboard');
+  const [sidebarOpen,   setSidebarOpen]   = useState(false);
+  const [transactions,  setTransactions]  = useState([]);
+  const [goals,         setGoals]         = useState([]);
+  const [memos,         setMemos]         = useState([]);
+  const [splitExpenses, setSplitExpenses] = useState([]);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstall,   setShowInstall]   = useState(false);
 
   const categories = DEFAULT_CATEGORIES;
 
-  // ── PWA install prompt capture ─────────────────────────────────────────────
+  // ── PWA install prompt ─────────────────────────────────────────────────────
   useEffect(() => {
-    const handler = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-      setShowInstallBanner(true);
-    };
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setShowInstall(true); };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
@@ -69,30 +66,30 @@ export default function App() {
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') setShowInstallBanner(false);
+    if (outcome === 'accepted') setShowInstall(false);
   };
 
-  // ── Load data ──────────────────────────────────────────────────────────────
-  const loadData = useCallback(async (uid) => {
-    if (!uid) return;
+  // ── Load data from localStorage ────────────────────────────────────────────
+  const loadData = useCallback(async (userId) => {
+    if (!userId) return;
     try {
       const [txs, gls] = await Promise.all([
-        getTransactionsAPI(uid),
-        getGoalsAPI(uid),
+        getTransactionsAPI(userId),
+        getGoalsAPI(userId),
       ]);
-      setTransactions(txs.map(t => ({ ...t, id: t.id, description: t.title || t.description })));
-      setGoals(gls.map(g => ({ ...g, id: g.id })));
+      setTransactions(txs);
+      setGoals(gls);
     } catch (err) {
       console.error('Failed to load data:', err);
     }
   }, []);
 
-  // ── Auth listener ──────────────────────────────────────────────────────────
+  // ── Auth: check localStorage session on startup ────────────────────────────
   useEffect(() => {
     const unsubscribe = onAuthChange(async (authUser) => {
       if (authUser) {
         setUser(authUser);
-        await loadData(authUser.id || authUser.uid);
+        await loadData(authUser.id);
       } else {
         setUser(null);
         setTransactions([]);
@@ -105,7 +102,7 @@ export default function App() {
 
   const handleLogin = (userData) => {
     setUser(userData);
-    loadData(userData.id || userData.uid);
+    loadData(userData.id);
   };
 
   const handleLogout = () => {
@@ -115,16 +112,13 @@ export default function App() {
     setGoals([]);
   };
 
-  const handleUpdateName = async (name) => {
-    // Optimistic update — backend could support PATCH /api/auth/name
-    setUser(prev => ({ ...prev, name }));
-  };
+  const handleUpdateName = (name) => setUser(prev => ({ ...prev, name }));
 
   // ── Transaction ops ────────────────────────────────────────────────────────
   const addTransaction = async (data) => {
     if (!user) return false;
     try {
-      const saved = await addTransactionAPI(user.id || user.uid, {
+      const saved = await addTransactionAPI(user.id, {
         title:    data.description || data.title || 'Transaction',
         description: data.description || data.title,
         amount:   data.amount,
@@ -133,7 +127,7 @@ export default function App() {
         notes:    data.notes    || '',
         date:     data.date     || new Date().toISOString(),
       });
-      setTransactions(prev => [{ ...saved, id: saved.id }, ...prev]);
+      setTransactions(prev => [saved, ...prev]);
       return true;
     } catch (err) {
       console.error('addTransaction failed:', err);
@@ -143,7 +137,7 @@ export default function App() {
 
   const deleteTransaction = async (id) => {
     try {
-      await deleteTransactionAPI(id);
+      await deleteTransactionAPI(user.id, id);
       setTransactions(prev => prev.filter(t => t.id !== id));
     } catch (err) {
       console.error('deleteTransaction failed:', err);
@@ -154,13 +148,12 @@ export default function App() {
   const addGoal = async (goalData) => {
     if (!user) return;
     try {
-      const saved = await addGoalAPI(user.id || user.uid, {
+      const saved = await addGoalAPI(user.id, {
         title:      goalData.title,
         target:     parseFloat(goalData.target) || 0,
-        saved:      0,
         targetDate: goalData.targetDate || '',
       });
-      setGoals(prev => [{ ...saved, id: saved.id }, ...prev]);
+      setGoals(prev => [saved, ...prev]);
     } catch (err) {
       console.error('addGoal failed:', err);
     }
@@ -169,7 +162,7 @@ export default function App() {
   const contributeToGoal = async (goalId, amount) => {
     if (!user) return;
     try {
-      await contributeGoalAPI(goalId, amount);
+      await contributeGoalAPI(user.id, goalId, amount);
       setGoals(prev => prev.map(g =>
         g.id === goalId ? { ...g, saved: Number(g.saved || 0) + Number(amount) } : g
       ));
@@ -189,19 +182,19 @@ export default function App() {
   const addSplitExpense = (payload) =>
     setSplitExpenses(prev => [...prev, {
       id: Date.now(),
-      description: payload.description,
-      totalAmount: Number(payload.totalAmount),
+      description:       payload.description,
+      totalAmount:       Number(payload.totalAmount),
       totalParticipants: Number(payload.totalParticipants),
     }]);
 
-  // ── Loading screen ─────────────────────────────────────────────────────────
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950">
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-2xl font-bold mb-6 shadow-2xl">
           BF
         </div>
-        <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-gray-400 text-sm font-medium">Loading BudgetFlow…</p>
       </div>
     );
@@ -217,29 +210,21 @@ export default function App() {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'dashboard':
-        return <Dashboard transactions={transactions} categories={categories} goals={goals} memos={memos} />;
-      case 'transactions':
-        return <TransactionView transactions={transactions} categories={categories} addTransaction={addTransaction} deleteTransaction={deleteTransaction} />;
-      case 'goals':
-        return <GoalsView goals={goals} memos={memos} addMemo={addMemo} addGoal={addGoal} contributeToGoal={contributeToGoal} categories={categories} />;
-      case 'split':
-        return <SplitBillView categories={categories} addTransaction={addTransaction} />;
-      case 'group-split':
-        return <GroupSplitView splitExpenses={splitExpenses} addSplitExpense={addSplitExpense} />;
-      case 'profile':
-        return <ProfileView user={user} transactions={transactions} goals={goals} categories={categories} onLogout={handleLogout} onUpdateName={handleUpdateName} />;
-      default:
-        return null;
+      case 'dashboard':    return <Dashboard transactions={transactions} categories={categories} goals={goals} memos={memos} />;
+      case 'transactions': return <TransactionView transactions={transactions} categories={categories} addTransaction={addTransaction} deleteTransaction={deleteTransaction} />;
+      case 'goals':        return <GoalsView goals={goals} memos={memos} addMemo={addMemo} addGoal={addGoal} contributeToGoal={contributeToGoal} categories={categories} />;
+      case 'split':        return <SplitBillView categories={categories} addTransaction={addTransaction} />;
+      case 'group-split':  return <GroupSplitView splitExpenses={splitExpenses} addSplitExpense={addSplitExpense} />;
+      case 'profile':      return <ProfileView user={user} transactions={transactions} goals={goals} categories={categories} onLogout={handleLogout} onUpdateName={handleUpdateName} />;
+      default:             return null;
     }
   };
 
   return (
     <div className="flex min-h-screen bg-gray-950 text-white">
 
-      {/* ── DESKTOP SIDEBAR ───────────────────────────────────────────────────── */}
+      {/* ── DESKTOP SIDEBAR ─────────────────────────────────────────────────── */}
       <aside className={`hidden md:flex flex-col ${sidebarOpen ? 'w-60' : 'w-20'} bg-gray-900 border-r border-gray-800 transition-[width] duration-200 shrink-0`}>
-        {/* Logo */}
         <div className="p-4 flex items-center justify-between border-b border-gray-800">
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-bold shrink-0">BF</div>
@@ -250,7 +235,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 p-3 space-y-1">
           {NAV_ITEMS.map(({ key, label, icon: Icon }) => (
             <button
@@ -268,12 +252,8 @@ export default function App() {
           ))}
         </nav>
 
-        {/* User footer */}
         <div className="p-3 border-t border-gray-800">
-          <button
-            onClick={() => setCurrentPage('profile')}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 transition-colors"
-          >
+          <button onClick={() => setCurrentPage('profile')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 transition-colors">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
               {getInitials(user.name, user.email)}
             </div>
@@ -287,7 +267,7 @@ export default function App() {
         </div>
       </aside>
 
-      {/* ── MAIN CONTENT ──────────────────────────────────────────────────────── */}
+      {/* ── MAIN CONTENT ────────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* Mobile top bar */}
@@ -296,28 +276,21 @@ export default function App() {
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold">BF</div>
             <span className="font-bold text-white text-sm">BudgetFlow</span>
           </div>
-          <button
-            onClick={() => setCurrentPage('profile')}
-            className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-bold"
-          >
+          <button onClick={() => setCurrentPage('profile')} className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-bold">
             {getInitials(user.name, user.email)}
           </button>
         </header>
 
         {/* PWA install banner */}
-        {showInstallBanner && (
+        {showInstall && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 bg-emerald-900/60 border-b border-emerald-700/50">
             <div className="flex items-center gap-2.5 min-w-0">
               <Download className="w-4 h-4 text-emerald-400 shrink-0" />
               <p className="text-emerald-200 text-sm truncate">Install BudgetFlow on your phone!</p>
             </div>
             <div className="flex gap-2 shrink-0">
-              <button onClick={handleInstall} className="text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-white px-3 py-1.5 rounded-lg transition-colors">
-                Install
-              </button>
-              <button onClick={() => setShowInstallBanner(false)} className="text-xs text-gray-400 hover:text-white px-2">
-                ✕
-              </button>
+              <button onClick={handleInstall} className="text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-white px-3 py-1.5 rounded-lg transition-colors">Install</button>
+              <button onClick={() => setShowInstall(false)} className="text-xs text-gray-400 hover:text-white px-2">✕</button>
             </div>
           </div>
         )}
@@ -328,7 +301,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* ── MOBILE BOTTOM NAV ─────────────────────────────────────────────────── */}
+      {/* ── MOBILE BOTTOM NAV ───────────────────────────────────────────────── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-lg border-t border-gray-800 safe-area-bottom">
         <div className="flex items-center justify-around px-1 py-2">
           {NAV_ITEMS.map(({ key, label, icon: Icon }) => (
@@ -346,7 +319,6 @@ export default function App() {
         </div>
       </nav>
 
-      {/* AI Chatbot */}
       <AIChatBot transactions={transactions} categories={categories} goals={goals} />
     </div>
   );

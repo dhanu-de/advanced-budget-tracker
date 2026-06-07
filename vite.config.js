@@ -3,16 +3,21 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+
+  // GitHub Pages serves from /advanced-budget-tracker/
+  base: '/advanced-budget-tracker/',
+
   server: {
     port: 3000,
     open: true,
+    // Local dev proxy — not used on GitHub Pages
     proxy: {
-      // Forward all /api/* requests to the Express backend
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        secure: false,
-      },
+      '/api': { target: 'http://localhost:5000', changeOrigin: true },
     },
+  },
+
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
   },
 });

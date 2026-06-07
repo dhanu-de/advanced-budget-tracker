@@ -168,10 +168,10 @@ const AIChatBot = ({ transactions = [], categories = [], goals = [] }) => {
 
     return (
         <>
-            {/* Floating Button */}
+            {/* Floating Button — sits above mobile bottom nav */}
             <button
                 onClick={() => setIsOpen(prev => !prev)}
-                className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ${isOpen
+                className={`fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ${isOpen
                     ? 'bg-red-500 hover:bg-red-600 rotate-90'
                     : 'bg-gradient-to-br from-emerald-500 to-cyan-600 hover:scale-110'
                     }`}
@@ -185,11 +185,11 @@ const AIChatBot = ({ transactions = [], categories = [], goals = [] }) => {
                 )}
             </button>
 
-            {/* Chat Window */}
+            {/* Chat Window — clears both mobile nav bar and the toggle button */}
             {isOpen && (
                 <div
-                    className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 flex flex-col rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700"
-                    style={{ height: '560px' }}
+                    className="fixed bottom-36 right-2 md:bottom-24 md:right-6 z-50 w-[calc(100vw-1rem)] sm:w-80 md:w-96 flex flex-col rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700"
+                    style={{ height: '480px', maxHeight: 'calc(100vh - 160px)' }}
                 >
                     {/* Header */}
                     <div className="bg-gradient-to-r from-emerald-500 to-cyan-600 px-4 py-3 flex items-center gap-3">

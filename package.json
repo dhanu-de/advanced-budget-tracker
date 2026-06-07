@@ -1,0 +1,36 @@
+{
+  "name": "advanced-budget-tracker",
+  "version": "1.0.0",
+  "description": "BudgetFlow — Smart Budget Tracker",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node server/server.js",
+    "server:dev": "node --watch server/server.js",
+    "dev:all": "npx concurrently \"npm:server:dev\" \"npm:dev\" --names \"server,client\" --prefix \"[{name}]\"",
+    "start": "NODE_ENV=production node server/server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "bcryptjs": "^3.0.2",
+    "chart.js": "^4.4.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.0",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.292.0",
+    "mongoose": "^9.3.3",
+    "react": "^18.2.0",
+    "react-chartjs-2": "^5.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6",
+    "vite": "^8.0.16"
+  }
+}

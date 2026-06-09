@@ -1,209 +1,140 @@
-import React, { useState, useRef } from 'react';
-import { Upload, Plus, Edit2, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Upload, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import TransactionForm from '../../components/forms/TransactionForm';
+import { useRef } from 'react';
+
+const C = {
+  surface:'#0d1526', raised:'#111e33', hover:'#172238', border:'#1a2d47', borderHi:'#233d5e',
+  txt:'#dce8f5', txt2:'#7a98b8', txt3:'#3f5977',
+  accent:'#5b6ff0', green:'#22d3a0', red:'#f05b7c', amber:'#f0a533',
+};
 
 const TransactionView = ({ transactions, categories, addTransaction, deleteTransaction }) => {
-  const [showForm, setShowForm] = useState(false);
-  const [filterType, setFilterType] = useState('all');
-
+  const [showForm,    setShowForm]    = useState(false);
+  const [filterType,  setFilterType]  = useState('all');
   const fileInputRef = useRef(null);
 
-  const filteredTransactions = transactions.filter((t) => {
-    const cat = categories.find((c) => c.id === t.categoryId);
+  const filtered = transactions.filter(t => {
     if (filterType === 'all') return true;
-    if (filterType === 'income') return cat && cat.type === 'income';
-    if (filterType === 'expense') return cat && cat.type === 'expense';
-    return true;
+    return t.type === filterType;
   });
 
   const handleCSVUpload = async (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
+    const file = e.target.files?.[0]; if (!file) return;
     const text = await file.text();
-    const lines = text.split(/\r?\n/).filter(l => l.trim().length);
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
     if (!lines.length) return;
     const header = lines[0].split(',').map(h => h.trim().toLowerCase());
     const idxDate = header.findIndex(h => ['date','transaction date'].includes(h));
     const idxDesc = header.findIndex(h => ['description','details','memo'].includes(h));
-    const idxAmount = header.findIndex(h => ['amount','amt','value'].includes(h));
-    const idxCategory = header.findIndex(h => ['category'].includes(h));
-    const otherCatId = categories.find(c => c.name.toLowerCase() === 'others')?.id || categories[0]?.id;
+    const idxAmt  = header.findIndex(h => ['amount','amt','value'].includes(h));
     for (let i = 1; i < lines.length; i++) {
-      const raw = lines[i];
-      const cols = [];
-      let cur = '';
-      let inQ = false;
-      for (let j = 0; j < raw.length; j++) {
-        const ch = raw[j];
-        if (ch === '"') { inQ = !inQ; continue; }
-        if (ch === ',' && !inQ) { cols.push(cur); cur = ''; continue; }
-        cur += ch;
+      const cols = []; let cur=''; let inQ=false;
+      for (const ch of lines[i]) {
+        if (ch==='"') { inQ=!inQ; continue; }
+        if (ch===',' && !inQ) { cols.push(cur); cur=''; continue; }
+        cur+=ch;
       }
       cols.push(cur);
-      const date = idxDate >= 0 ? cols[idxDate]?.trim() : '';
-      const description = idxDesc >= 0 ? cols[idxDesc]?.trim() : '';
-      const amountStr = idxAmount >= 0 ? cols[idxAmount]?.trim() : '';
-      const categoryName = idxCategory >= 0 ? cols[idxCategory]?.trim() : '';
-      const amt = parseFloat((amountStr || '').replace(/[^0-9.-]/g, ''));
-      if (!description || isNaN(amt)) continue;
-      let catId = otherCatId;
-      if (categoryName) {
-        const match = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
-        if (match) catId = match.id;
-      } else {
-        const d = description.toLowerCase();
-        if (d.includes('salary') || d.includes('client')) catId = categories.find(c => c.name === 'Salary')?.id || catId;
-        else if (d.includes('rent')) catId = categories.find(c => c.name === 'Rent')?.id || catId;
-        else if (d.includes('food') || d.includes('pizza') || d.includes('dinner')) catId = categories.find(c => c.name === 'Food')?.id || catId;
-        else if (d.includes('amazon') || d.includes('prime') || d.includes('netflix')) catId = categories.find(c => c.name === 'Entertainment')?.id || catId;
-      }
-      await addTransaction({ amount: amt, description, date: date || new Date().toISOString().split('T')[0], categoryId: catId, notes: 'Imported from CSV' });
+      const desc = idxDesc >= 0 ? cols[idxDesc]?.trim() : '';
+      const amt  = parseFloat((idxAmt >= 0 ? cols[idxAmt] : '').replace(/[^0-9.-]/g,''));
+      if (!desc || isNaN(amt)) continue;
+      await addTransaction({ amount: amt, description: desc, date: idxDate >= 0 ? cols[idxDate]?.trim() : new Date().toISOString().split('T')[0], category:'Others', type: amt < 0 ? 'expense' : 'expense' });
     }
     e.target.value = '';
   };
 
+  const fmtDate = (d) => { try { return new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }); } catch { return '-'; } };
+  const fmt = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold">Transaction History</h2>
-        <div className="flex space-x-3">
-          <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleCSVUpload} />
-          <button
-            onClick={() => fileInputRef.current && fileInputRef.current.click()}
-            className="flex items-center px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg font-semibold hover:bg-yellow-600 transition-colors shadow-md"
-          >
-            <Upload className="w-5 h-5 mr-2" />
-            Upload Bank File (CSV)
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'0.75rem' }}>
+        <div>
+          <h2 style={{ fontSize:22, fontWeight:800, color: C.txt }}>Transactions</h2>
+          <p style={{ fontSize:13, color: C.txt3, marginTop:2 }}>{transactions.length} total records</p>
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <input ref={fileInputRef} type="file" accept=".csv" style={{ display:'none' }} onChange={handleCSVUpload} />
+          <button onClick={() => fileInputRef.current?.click()} style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 14px', borderRadius:10, border:`1.5px solid ${C.borderHi}`, background: C.raised, color: C.amber, fontSize:13, fontWeight:600, cursor:'pointer' }}>
+            <Upload size={15} /> CSV
           </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center px-4 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add Transaction
+          <button onClick={() => setShowForm(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 14px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#5b6ff0,#4254db)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            <Plus size={15} /> Add Transaction
           </button>
         </div>
       </div>
 
-      {/* ADD TRANSACTION FORM */}
-      {showForm && (
-        <TransactionForm
-          categories={categories}
-          addTransaction={addTransaction}
-          onClose={() => setShowForm(false)}
-        />
-      )}
+      {showForm && <TransactionForm categories={categories} addTransaction={addTransaction} onClose={() => setShowForm(false)} />}
 
-
-
-      {/* FILTER BAR */}
-      <div className="flex space-x-3 text-sm font-medium">
-        {['all', 'income', 'expense'].map((type) => (
-          <button
-            key={type}
-            onClick={() => setFilterType(type)}
-            className={`px-3 py-1 rounded-full capitalize transition-colors ${
-              filterType === type
-                ? 'bg-primary text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-            }`}
-            aria-label={`Show ${type} transactions`}
-          >
-            {type}
-          </button>
+      {/* Filter pills */}
+      <div style={{ display:'flex', gap:8 }}>
+        {[['all','All'], ['income','Income'], ['expense','Expense']].map(([val, label]) => (
+          <button key={val} onClick={() => setFilterType(val)} style={{
+            padding:'6px 16px', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer', transition:'all .15s',
+            background: filterType===val ? C.accent : C.raised,
+            border: `1.5px solid ${filterType===val ? C.accent : C.borderHi}`,
+            color: filterType===val ? '#fff' : C.txt2,
+          }}>{label}</button>
         ))}
       </div>
 
-      {/* TRANSACTION LIST */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-700">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description/Note</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredTransactions.map((t) => {
-              const category = categories.find((c) => c.id === t.categoryId);
-              const isIncome = category?.type === 'income';
-
-              // Date handling: robust formatting
-              let formattedDate = '';
-              try {
-                if (t.date instanceof Date) {
-                  formattedDate = t.date.toLocaleDateString();
-                } else if (typeof t.date === 'string' || typeof t.date === 'number') {
-                  formattedDate = new Date(t.date).toLocaleDateString();
-                } else if (t.date && typeof t.date.toDate === 'function') {
-                  formattedDate = t.date.toDate().toLocaleDateString();
-                } else {
-                  formattedDate = '-';
-                }
-              } catch {
-                formattedDate = '-';
-              }
-
-              return (
-                <tr key={t.id || t.description + t.date} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {formattedDate}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {t.description}
-                    <p className="text-xs text-gray-500 italic mt-1">
-                      Note: {t.notes || 'No note added'}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        isIncome
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-                      }`}
-                    >
-                      {category ? category.name : 'Unknown'}
-                    </span>
-                  </td>
-                  <td
-                    className={`px-6 py-4 whitespace-nowrap text-right text-sm font-bold ${
-                      isIncome ? 'text-green-600' : 'text-red-600'
-                    }`}
-                  >
-                    {isIncome ? '+' : '-'} ₹{Number(t.amount).toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
-                    <button
-                      title="Edit"
-                      className="text-blue-500 hover:text-blue-700"
-                      aria-label="Edit transaction"
-                      disabled
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => deleteTransaction(t.id)}
-                      title="Delete"
-                      aria-label="Delete transaction"
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {filteredTransactions.length === 0 && (
-          <p className="p-6 text-center text-gray-500 italic">
-            No transactions found for this filter. Start adding your financial data!
-          </p>
-        )}
+      {/* Table */}
+      <div style={{ background: C.surface, border:`1px solid ${C.border}`, borderRadius:16, overflow:'hidden' }}>
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead>
+              <tr style={{ background: C.raised }}>
+                {['Date','Description','Category','Amount',''].map(h => (
+                  <th key={h} style={{ padding:'12px 16px', textAlign: h==='Amount'?'right':'left', fontSize:11, fontWeight:700, letterSpacing:'.07em', textTransform:'uppercase', color: C.txt3, whiteSpace:'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(t => {
+                const isIncome = t.type === 'income';
+                const cat = categories.find(c => c.id === t.categoryId || c.name === t.category);
+                return (
+                  <tr key={t.id} style={{ borderTop:`1px solid ${C.border}`, transition:'background .1s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = C.hover}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <td style={{ padding:'13px 16px', fontSize:13, color: C.txt3, whiteSpace:'nowrap' }}>{fmtDate(t.date)}</td>
+                    <td style={{ padding:'13px 16px' }}>
+                      <p style={{ fontSize:14, fontWeight:600, color: C.txt }}>{t.description || t.title}</p>
+                      {t.notes && <p style={{ fontSize:12, color: C.txt3, marginTop:2 }}>{t.notes}</p>}
+                    </td>
+                    <td style={{ padding:'13px 16px' }}>
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20, fontSize:12, fontWeight:600,
+                        background: isIncome ? 'rgba(34,211,160,.1)' : 'rgba(240,91,124,.1)',
+                        color: isIncome ? C.green : C.red,
+                        border: `1px solid ${isIncome ? 'rgba(34,211,160,.25)' : 'rgba(240,91,124,.25)'}`,
+                      }}>
+                        {isIncome ? <ArrowUp size={11}/> : <ArrowDown size={11}/>}
+                        {cat?.name || t.category || 'Others'}
+                      </span>
+                    </td>
+                    <td style={{ padding:'13px 16px', textAlign:'right', fontSize:14, fontWeight:700, color: isIncome ? C.green : C.red, whiteSpace:'nowrap' }}>
+                      {isIncome ? '+' : '−'}{fmt(t.amount)}
+                    </td>
+                    <td style={{ padding:'13px 16px', textAlign:'center' }}>
+                      <button onClick={() => deleteTransaction(t.id)} style={{ background:'none', border:'none', color: C.txt3, cursor:'pointer', padding:4, borderRadius:6, transition:'color .15s' }}
+                        onMouseEnter={e=>e.currentTarget.style.color=C.red}
+                        onMouseLeave={e=>e.currentTarget.style.color=C.txt3}>
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {filtered.length === 0 && (
+            <div style={{ padding:'3rem', textAlign:'center', color: C.txt3, fontSize:14 }}>
+              No transactions found. Start by adding one!
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

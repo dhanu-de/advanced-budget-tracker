@@ -1,102 +1,107 @@
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Target, PlusCircle, CheckCircle2, Clock } from 'lucide-react';
 import GoalForm from '../../components/forms/GoalForm';
-import MemoForm from '../../components/forms/MemoForm';
 import GoalContributionModal from '../../components/forms/GoalContributionModal';
 
-const GoalsView = ({ goals = [], memos = [], addMemo, addGoal, contributeToGoal, categories = [] }) => {
+const C = {
+  surface:'#0d1526', raised:'#111e33', border:'#1a2d47', borderHi:'#233d5e',
+  txt:'#dce8f5', txt2:'#7a98b8', txt3:'#3f5977',
+  accent:'#5b6ff0', green:'#22d3a0', red:'#f05b7c', violet:'#9b7bf0', amber:'#f0a533',
+};
+
+const GoalsView = ({ goals = [], memos = [], addMemo, addGoal, contributeToGoal }) => {
   const [showGoalForm, setShowGoalForm] = useState(false);
-  const [showMemoForm, setShowMemoForm] = useState(false);
-  const [activeContributionGoal, setActiveContributionGoal] = useState(null);
+  const [activeGoal,   setActiveGoal]   = useState(null);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold">Financial Goals & Planning Funds</h2>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowMemoForm(true)}
-            className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors shadow-md"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add Note
-          </button>
-          <button
-            onClick={() => setShowGoalForm(true)}
-            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors shadow-md"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            New Goal
-          </button>
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'0.75rem' }}>
+        <div>
+          <h2 style={{ fontSize:22, fontWeight:800, color: C.txt }}>Savings Goals</h2>
+          <p style={{ fontSize:13, color: C.txt3, marginTop:2 }}>{goals.length} goal{goals.length!==1?'s':''} · {goals.filter(g=>Number(g.saved)>=Number(g.target)).length} completed</p>
         </div>
+        <button onClick={() => setShowGoalForm(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 16px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#9b7bf0,#7c5ce0)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+          <Plus size={15}/> New Goal
+        </button>
       </div>
 
-      {showGoalForm && (
-        <GoalForm addGoal={addGoal} onClose={() => setShowGoalForm(false)} />
-      )}
+      {showGoalForm && <GoalForm addGoal={addGoal} onClose={() => setShowGoalForm(false)} />}
+      {activeGoal   && <GoalContributionModal memoId={activeGoal} contributeToGoal={contributeToGoal} onClose={() => setActiveGoal(null)} />}
 
-      {showMemoForm && (
-        <MemoForm categories={categories} addMemo={addMemo} onClose={() => setShowMemoForm(false)} />
-      )}
-
-      {/* GOALS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {goals.map((goal) => {
-          const progress = (goal.saved / goal.target) * 100;
-          return (
-            <div key={goal.id} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-              <h3 className="text-lg font-bold mb-2">{goal.title}</h3>
-              <p className="text-gray-500 text-sm mb-4">Target: ₹{goal.target.toFixed(2)}</p>
-
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Progress</span>
-                  <span className="font-semibold">{progress.toFixed(1)}%</span>
+      {/* Goals Grid */}
+      {goals.length === 0 ? (
+        <div style={{ background: C.surface, border:`1px solid ${C.border}`, borderRadius:16, padding:'3rem', textAlign:'center' }}>
+          <Target size={40} color={C.txt3} style={{ margin:'0 auto 1rem' }} />
+          <p style={{ color: C.txt2, fontWeight:600, marginBottom:6 }}>No goals yet</p>
+          <p style={{ color: C.txt3, fontSize:13 }}>Create your first savings goal to start tracking progress</p>
+        </div>
+      ) : (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:'1rem' }}>
+          {goals.map(goal => {
+            const pct = Math.min((Number(goal.saved) / Number(goal.target)) * 100, 100);
+            const done = pct >= 100;
+            return (
+              <div key={goal.id} style={{ background: C.surface, border:`1px solid ${done ? C.green+'44' : C.border}`, borderRadius:16, padding:'1.3rem', display:'flex', flexDirection:'column', gap:'0.9rem' }}>
+                {/* Title row */}
+                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+                      {done
+                        ? <CheckCircle2 size={15} color={C.green} />
+                        : <Clock size={15} color={C.violet} />}
+                      <h3 style={{ fontSize:15, fontWeight:700, color: C.txt, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{goal.title}</h3>
+                    </div>
+                    {goal.targetDate && (
+                      <p style={{ fontSize:12, color: C.txt3 }}>Target: {new Date(goal.targetDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</p>
+                    )}
+                  </div>
+                  <span style={{ fontSize:13, fontWeight:700, color: done ? C.green : C.violet, background: done ? 'rgba(34,211,160,.1)' : 'rgba(155,123,240,.1)', padding:'3px 10px', borderRadius:20, whiteSpace:'nowrap' }}>
+                    {pct.toFixed(0)}%
+                  </span>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-purple-600 h-2 rounded-full transition-all"
-                    style={{ width: `${Math.min(progress, 100)}%` }}
-                  />
+
+                {/* Progress bar */}
+                <div>
+                  <div style={{ height:6, background: C.raised, borderRadius:4, overflow:'hidden' }}>
+                    <div style={{ height:'100%', borderRadius:4, width:`${pct}%`, background: done ? `linear-gradient(90deg,${C.green},#16a34a)` : `linear-gradient(90deg,${C.violet},${C.accent})`, transition:'width .5s ease' }} />
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginTop:6, fontSize:12, color: C.txt3 }}>
+                    <span>Saved: <strong style={{ color: C.txt }}>₹{Number(goal.saved).toLocaleString('en-IN')}</strong></span>
+                    <span>Target: <strong style={{ color: C.txt }}>₹{Number(goal.target).toLocaleString('en-IN')}</strong></span>
+                  </div>
                 </div>
+
+                {/* CTA */}
+                {!done && (
+                  <button onClick={() => setActiveGoal(goal.id)} style={{ width:'100%', padding:'9px', borderRadius:10, border:`1.5px solid ${C.violet}44`, background: 'rgba(155,123,240,.08)', color: C.violet, fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, transition:'background .15s' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(155,123,240,.18)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='rgba(155,123,240,.08)'}>
+                    <PlusCircle size={14}/> Add Money
+                  </button>
+                )}
+                {done && (
+                  <div style={{ textAlign:'center', fontSize:13, fontWeight:700, color: C.green }}>🎉 Goal Achieved!</div>
+                )}
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Saved: ₹{goal.saved.toFixed(2)} / ₹{goal.target.toFixed(2)}
-              </p>
-
-              <button
-                onClick={() => setActiveContributionGoal(goal.id)}
-                className="w-full py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
-              >
-                Add Contribution
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* MEMOS LIST */}
+      {/* Notes */}
       {memos.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-bold mb-4">Planning Notes</h3>
-          <div className="space-y-3">
-            {memos.map((memo) => (
-              <div key={memo.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h4 className="font-semibold">{memo.title}</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{memo.content}</p>
+        <div style={{ background: C.surface, border:`1px solid ${C.border}`, borderRadius:16, padding:'1.3rem' }}>
+          <h3 style={{ fontSize:14, fontWeight:700, color: C.txt, marginBottom:'0.9rem' }}>Planning Notes</h3>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {memos.map(m => (
+              <div key={m.id} style={{ background: C.raised, borderRadius:10, padding:'10px 14px', border:`1px solid ${C.borderHi}` }}>
+                <p style={{ fontSize:14, fontWeight:600, color: C.txt }}>{m.title}</p>
+                {m.content && <p style={{ fontSize:13, color: C.txt3, marginTop:3 }}>{m.content}</p>}
               </div>
             ))}
           </div>
         </div>
-      )}
-
-      {activeContributionGoal && (
-        <GoalContributionModal
-          memoId={activeContributionGoal}
-          contributeToGoal={contributeToGoal}
-          onClose={() => setActiveContributionGoal(null)}
-        />
       )}
     </div>
   );

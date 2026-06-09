@@ -1,135 +1,105 @@
 import React, { useMemo } from 'react';
 import { Pie } from 'react-chartjs-2';
-import { DollarSign, ArrowUp, ArrowDown, Filter } from 'lucide-react';
+import { Wallet, ArrowUp, ArrowDown, BarChart3, DollarSign } from 'lucide-react';
 import '../../components/charts/chartConfig';
 import { aggregateTransactions, detectSubscriptions } from '../../services/financeUtils';
-import { StatCard } from '../../components/shared/SharedUI';
 import CumulativeNetFlowGraph from '../../components/charts/NetFlowGraph';
 import SankeyDiagramSimulation from '../../components/charts/SankeyDiagram';
 
-const Dashboard = ({ transactions, categories, goals, memos }) => {
-  // Compute totals and breakdowns with memoization
-  const { totals, categoryBreakdown } = useMemo(
-    () => aggregateTransactions(transactions, categories),
-    [transactions, categories]
-  );
-  const subscriptions = useMemo(
-    () => detectSubscriptions(transactions),
-    [transactions]
-  );
+const C = {
+  surface: '#0d1526', raised: '#111e33', border: '#1a2d47', borderHi: '#233d5e',
+  txt: '#dce8f5', txt2: '#7a98b8', txt3: '#3f5977',
+  accent: '#5b6ff0', green: '#22d3a0', red: '#f05b7c', violet: '#9b7bf0', amber: '#f0a533',
+};
 
-  // Filter only 'expense' categories actually present in categoryBreakdown
-  const expenseCategoryLabels = useMemo(
-    () =>
-      Object.keys(categoryBreakdown).filter(
-        (name) => categories.find((c) => c.name === name && c.type === 'expense')
-      ),
-    [categoryBreakdown, categories]
-  );
-  const expenseCategoryColors = expenseCategoryLabels.map(name =>
-    categories.find((c) => c.name === name)?.color || '#374151'
-  );
-  const expenseCategoryData = expenseCategoryLabels.map(name => categoryBreakdown[name]);
+const StatCard = ({ label, value, icon: Icon, color, sub }) => (
+  <div style={{ background: C.surface, border:`1px solid ${C.border}`, borderRadius:16, padding:'1.1rem 1.3rem', position:'relative', overflow:'hidden' }}>
+    <div style={{ position:'absolute', top:-16, right:-16, width:72, height:72, borderRadius:'50%', background: color, opacity:.08, filter:'blur(10px)' }} />
+    <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', position:'relative' }}>
+      <div>
+        <p style={{ fontSize:11, fontWeight:700, letterSpacing:'.07em', textTransform:'uppercase', color: C.txt3, marginBottom:6 }}>{label}</p>
+        <p style={{ fontSize:22, fontWeight:800, color: C.txt, lineHeight:1 }}>{value}</p>
+        {sub && <p style={{ fontSize:12, color: C.txt3, marginTop:5 }}>{sub}</p>}
+      </div>
+      <div style={{ width:38, height:38, borderRadius:10, background:`${color}18`, border:`1px solid ${color}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        <Icon size={18} color={color} />
+      </div>
+    </div>
+  </div>
+);
+
+const Card = ({ title, children }) => (
+  <div style={{ background: C.surface, border:`1px solid ${C.border}`, borderRadius:16, padding:'1.3rem' }}>
+    <h3 style={{ fontSize:14, fontWeight:700, color: C.txt, marginBottom:'1rem' }}>{title}</h3>
+    {children}
+  </div>
+);
+
+const Dashboard = ({ transactions, categories, goals, memos }) => {
+  const { totals, categoryBreakdown } = useMemo(() => aggregateTransactions(transactions, categories), [transactions, categories]);
+  const subscriptions = useMemo(() => detectSubscriptions(transactions), [transactions]);
+
+  const expenseLabels = useMemo(() =>
+    Object.keys(categoryBreakdown).filter(n => categories.find(c => c.name === n && c.type === 'expense')),
+    [categoryBreakdown, categories]);
 
   const pieData = {
-    labels: expenseCategoryLabels,
-    datasets: [
-      {
-        data: expenseCategoryData,
-        backgroundColor: expenseCategoryColors,
-        hoverBackgroundColor: expenseCategoryColors,
-      },
-    ],
+    labels: expenseLabels,
+    datasets: [{
+      data: expenseLabels.map(n => categoryBreakdown[n]),
+      backgroundColor: expenseLabels.map(n => categories.find(c => c.name === n)?.color || C.txt3),
+    }],
   };
+  const pieOpts = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color: C.txt2, font:{ family:'Inter', size:12 } } } } };
+
+  const fmt = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
 
   return (
-    <div className="space-y-8">
-      <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Financial Overview</h2>
-
-      {/* STATS CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard
-          title="Net Balance"
-          value={totals.balance}
-          icon={DollarSign}
-          color="#3B82F6"
-          trend={((totals.balance - 0) / (totals.balance || 1)) * 100}
-        />
-        <StatCard
-          title="Total Income"
-          value={totals.income}
-          icon={ArrowUp}
-          color="#10B981"
-          trend={5.2}
-        />
-        <StatCard
-          title="Total Expenses"
-          value={totals.expense}
-          icon={ArrowDown}
-          color="#EF4444"
-          trend={-2.1}
-        />
-        <StatCard
-          title="Total Transactions"
-          value={transactions.length}
-          icon={Filter}
-          color="#FBBF24"
-        />
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
+      <div>
+        <h2 style={{ fontSize:22, fontWeight:800, color: C.txt, marginBottom:4 }}>Financial Overview</h2>
+        <p style={{ fontSize:13, color: C.txt3 }}>{new Date().toLocaleDateString('en-IN', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}</p>
       </div>
 
-      {/* GRAPHS AND ANALYSIS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Cumulative Net Flow Graph */}
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-bold mb-4">Cumulative Net Flow & Growth</h3>
-          <CumulativeNetFlowGraph transactions={transactions} categories={categories} initialBalance={0} />
-        </div>
+      {/* Stat Cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:'1rem' }}>
+        <StatCard label="Net Balance"   value={fmt(totals.balance)} icon={Wallet}   color={totals.balance >= 0 ? C.green : C.red} />
+        <StatCard label="Total Income"  value={fmt(totals.income)}  icon={ArrowUp}  color={C.green} />
+        <StatCard label="Total Expenses" value={fmt(totals.expense)} icon={ArrowDown} color={C.red} />
+        <StatCard label="Transactions"  value={transactions.length} icon={BarChart3} color={C.accent} />
+      </div>
 
-        {/* Spending by Category PIE */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-bold mb-4">Spending Breakdown (Expenses)</h3>
-          {expenseCategoryLabels.length > 0 ? (
-            <div className="h-64 flex items-center justify-center">
-              <Pie data={pieData} options={{ responsive: true, maintainAspectRatio: false }} />
+      {/* Charts Row */}
+      <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:'1rem' }}>
+        <Card title="Cumulative Net Flow">
+          <CumulativeNetFlowGraph transactions={transactions} categories={categories} initialBalance={0} />
+        </Card>
+        <Card title="Expense Breakdown">
+          {expenseLabels.length > 0
+            ? <div style={{ height:220 }}><Pie data={pieData} options={pieOpts} /></div>
+            : <p style={{ textAlign:'center', color: C.txt3, marginTop:'3rem', fontSize:13 }}>No expenses yet</p>}
+        </Card>
+      </div>
+
+      {/* Bottom Row */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem' }}>
+        <Card title={`Detected Subscriptions (${subscriptions.length})`}>
+          {subscriptions.length > 0 ? (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {subscriptions.map((s,i) => (
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background: C.raised, borderRadius:10, padding:'10px 14px' }}>
+                  <span style={{ fontSize:13, color: C.txt, fontWeight:600 }}>{s.description}</span>
+                  <span style={{ fontSize:13, color: C.accent, fontWeight:700 }}>₹{s.amount.toFixed(0)} ×{s.count}</span>
+                </div>
+              ))}
             </div>
           ) : (
-            <p className="text-center text-gray-500 mt-12">No expenses recorded yet.</p>
+            <p style={{ color: C.txt3, fontSize:13 }}>No recurring patterns detected. Keep logging!</p>
           )}
-        </div>
-      </div>
-
-      {/* ADVANCED PANELS: SUBSCRIPTIONS & SANKEY SIMULATION */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Subscription Detector */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-bold mb-4 text-blue-500 flex items-center">
-            <DollarSign className="w-5 h-5 mr-2" /> Detected Subscriptions ({subscriptions.length})
-          </h3>
-          {subscriptions.length > 0 ? (
-            <ul className="space-y-3">
-              {subscriptions.map((s, idx) => (
-                <li
-                  key={idx}
-                  className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/50 rounded-lg border border-blue-200 dark:border-blue-700"
-                >
-                  <span className="font-semibold">{s.description}</span>
-                  <span className="text-blue-600 dark:text-blue-400">
-                    ₹{s.amount.toFixed(2)} ({s.count}x)
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500">No recurring patterns detected. Keep logging transactions!</p>
-          )}
-        </div>
-
-        {/* Sankey Diagram Simulation */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-bold mb-4">Sankey Money Flow Simulation</h3>
-          <p className="text-gray-500 mb-4">Visualizing Income flow to Spending and Goals (Simulated Data).</p>
+        </Card>
+        <Card title="Money Flow">
           <SankeyDiagramSimulation totals={totals} goals={goals} />
-        </div>
+        </Card>
       </div>
     </div>
   );

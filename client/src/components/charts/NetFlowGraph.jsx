@@ -11,6 +11,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import { buildMonthlyTimeline } from '../../services/transactionSelectors';
 
 ChartJS.register(
   CategoryScale,
@@ -23,138 +24,116 @@ ChartJS.register(
   Legend
 );
 
+const C = {
+  accent: '#5b6ff0',
+  green:  '#22d3a0',
+  red:    '#f05b7c',
+  txt2:   '#7a98b8',
+  txt3:   '#3f5977',
+  raised: '#111e33',
+  border: '#1a2d47',
+};
+
 const CumulativeNetFlowGraph = ({ transactions = [], categories = [], initialBalance = 0 }) => {
   const [scale, setScale] = useState('monthly');
 
   const chartData = useMemo(() => {
-    if (!transactions.length) return { labels: [], datasets: [] };
+    const monthly = buildMonthlyTimeline(transactions, categories);
+    if (!monthly.length) return { labels: [], datasets: [] };
 
-    // Sort by date
-    const sortedTransactions = [...transactions].sort((a, b) => a.date - b.date);
-    const aggregatedData = {};
-    let cumulativeBalance = initialBalance;
-
-    for (const t of sortedTransactions) {
-      // Defensive date construction
-      const dateObj = t.date instanceof Date ? t.date : new Date(t.date);
-      const year = dateObj.getFullYear();
-      const month = dateObj.getMonth();
-      const key =
-        scale === 'monthly'
-          ? `${year}-${String(month + 1).padStart(2, '0')}`
-          : `${year}`;
-
-      if (!aggregatedData[key]) {
-        aggregatedData[key] = {
-          income: 0,
-          expense: 0,
-          netFlow: 0,
-          cumulativeStart: cumulativeBalance,
-        };
-      }
-      const category = categories.find((c) => c.id === t.categoryId);
-      const amt = typeof t.amount === 'number' ? t.amount : Number(t.amount) || 0;
-      if (category?.type === 'income') {
-        aggregatedData[key].income += amt;
-        cumulativeBalance += amt;
-      } else if (category?.type === 'expense') {
-        aggregatedData[key].expense += amt;
-        cumulativeBalance -= amt;
-      }
-      aggregatedData[key].netFlow = aggregatedData[key].income - aggregatedData[key].expense;
-    }
-
-    // X axis labels sorted chronologically
-    const labels = Object.keys(aggregatedData).sort();
-    let runningTotal = initialBalance;
-    const cumulativeData = labels.map((key) => {
-      runningTotal += aggregatedData[key].netFlow;
-      return runningTotal;
+    let running = initialBalance;
+    const cumulativeData = monthly.map(b => {
+      running += b.net;
+      return running;
     });
-    const netFlowData = labels.map((key) => aggregatedData[key].netFlow);
-
-    // Present labels in readable format
-    const prettyLabels = labels.map((l) => {
-      if (scale === 'monthly') {
-        const parts = l.split('-');
-        const y = Number(parts[0]);
-        const m = Number(parts[1]);
-        return !isNaN(y) && !isNaN(m)
-          ? new Date(y, m - 1).toLocaleDateString('en-IN', { year: '2-digit', month: 'short' })
-          : l;
-      }
-      return l;
-    });
+    const netFlowData = monthly.map(b => b.net);
 
     return {
-      labels: prettyLabels,
+      labels: monthly.map(b => b.label),
       datasets: [
         {
           type: 'line',
           label: 'Cumulative Net Worth',
           data: cumulativeData,
-          borderColor: '#3B82F6',
-          backgroundColor: 'rgba(59,130,246,0.2)',
+          borderColor: C.accent,
+          backgroundColor: `${C.accent}33`,
           fill: false,
           yAxisID: 'y1',
           tension: 0.2,
-          order: 1
+          order: 1,
+          pointRadius: 3,
+          pointBackgroundColor: C.accent,
         },
         {
           type: 'bar',
-          label: `Net Flow per ${scale === 'monthly' ? 'Month' : 'Year'}`,
+          label: 'Net Flow per Month',
           data: netFlowData,
-          backgroundColor: netFlowData.map((v) => v >= 0 ? '#10B981' : '#EF4444'),
+          backgroundColor: netFlowData.map(v => v >= 0 ? `${C.green}cc` : `${C.red}cc`),
           yAxisID: 'y',
-          order: 2
-        }
+          order: 2,
+          borderRadius: 4,
+        },
       ],
     };
-  }, [transactions, categories, scale, initialBalance]);
+  }, [transactions, categories, initialBalance]);
 
   const options = {
     responsive: true,
     maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        labels: {
+          color: C.txt2,
+          font: { family: 'Inter', size: 12 },
+          boxWidth: 12,
+        },
+      },
+      tooltip: {
+        backgroundColor: '#0d1526',
+        borderColor: '#233d5e',
+        borderWidth: 1,
+        titleColor: '#dce8f5',
+        bodyColor: C.txt2,
+        callbacks: {
+          label: ctx => {
+            const val = ctx.raw;
+            const sign = val >= 0 ? '+' : '';
+            return ` ${ctx.dataset.label}: ${sign}₹${Math.abs(val).toLocaleString('en-IN')}`;
+          },
+        },
+      },
+    },
     scales: {
+      x: {
+        ticks: { color: C.txt3, font: { size: 11 } },
+        grid:  { color: `${C.border}88` },
+      },
       y: {
         beginAtZero: true,
         type: 'linear',
-        display: true,
         position: 'left',
-        title: { display: true, text: 'Net Flow (Bar)' }
+        ticks: { color: C.txt3, font: { size: 11 }, callback: v => `₹${Math.abs(v).toLocaleString('en-IN')}` },
+        grid:  { color: `${C.border}88` },
+        title: { display: true, text: 'Net Flow', color: C.txt3, font: { size: 11 } },
       },
       y1: {
         type: 'linear',
-        display: true,
         position: 'right',
-        title: { display: true, text: 'Cumulative Balance (Line)' },
-        grid: { drawOnChartArea: false },
+        ticks: { color: C.txt3, font: { size: 11 }, callback: v => `₹${Math.abs(v).toLocaleString('en-IN')}` },
+        grid:  { drawOnChartArea: false },
+        title: { display: true, text: 'Cumulative Balance', color: C.txt3, font: { size: 11 } },
       },
-    }
+    },
   };
 
   return (
-    <div className='space-y-4'>
-      <div className='flex justify-end'>
-        <label className="mr-2 font-medium text-sm text-gray-700 dark:text-gray-300" htmlFor="scale-select">
-          View by:
-        </label>
-        <select
-          id="scale-select"
-          value={scale}
-          onChange={(e) => setScale(e.target.value)}
-          className="p-2 border rounded-lg dark:bg-gray-700"
-        >
-          <option value="monthly">Month</option>
-          <option value="yearly">Year</option>
-        </select>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {transactions.length ? (
-        <div className='h-96'>
+        <div style={{ height: 260 }}>
           <Bar data={chartData} options={options} />
         </div>
       ) : (
-        <p className="text-center text-gray-500 mt-12 h-96 flex items-center justify-center">
+        <p style={{ textAlign: 'center', color: C.txt3, padding: '3rem 0', fontSize: 13 }}>
           Add transactions to see your financial history here.
         </p>
       )}

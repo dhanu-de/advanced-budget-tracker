@@ -1,46 +1,39 @@
 import React, { useState, useMemo } from 'react';
-import { Users, ArrowUp, GitMerge, Plus } from 'lucide-react';
-import { StatCard } from '../../components/shared/SharedUI';
+import { Users, Plus, ArrowDown, GitMerge } from 'lucide-react';
 
-const InlineGroupExpenseForm = ({ onSave, onClose }) => {
-  const [description, setDescription] = useState('');
-  const [totalAmount, setTotalAmount] = useState('');
-  const [totalParticipants, setTotalParticipants] = useState(2);
+const C = {
+  surface:'#0d1526', raised:'#111e33', hover:'#172238', border:'#1a2d47', borderHi:'#233d5e',
+  txt:'#dce8f5', txt2:'#7a98b8', txt3:'#3f5977',
+  accent:'#5b6ff0', green:'#22d3a0', red:'#f05b7c', violet:'#9b7bf0',
+};
+const INPUT = { width:'100%', background:C.raised, color:C.txt, border:`1.5px solid ${C.borderHi}`, borderRadius:10, padding:'11px 14px', fontSize:15, fontFamily:'Inter,sans-serif', outline:'none' };
+const LABEL = { display:'block', fontSize:11, fontWeight:700, letterSpacing:'.07em', textTransform:'uppercase', color:C.txt3, marginBottom:6 };
+
+const InlineForm = ({ onSave, onClose }) => {
+  const [desc,  setDesc]  = useState('');
+  const [amt,   setAmt]   = useState('');
+  const [ppl,   setPpl]   = useState(2);
   const [error, setError] = useState('');
 
   const submit = (e) => {
-    e.preventDefault();
-    setError('');
-    const amt = parseFloat(totalAmount);
-    const ppl = parseInt(totalParticipants, 10);
-    if (!description || isNaN(amt) || amt <= 0 || isNaN(ppl) || ppl < 2) {
-      setError('Enter description, amount (>0) and at least 2 participants');
-      return;
-    }
-    onSave({ description, totalAmount: amt, totalParticipants: ppl });
+    e.preventDefault(); setError('');
+    const a = parseFloat(amt), p = parseInt(ppl, 10);
+    if (!desc || isNaN(a) || a<=0 || isNaN(p) || p<2) { setError('Enter description, amount (>0) and at least 2 people'); return; }
+    onSave({ description:desc, totalAmount:a, totalParticipants:p });
     onClose();
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4 mt-4">
-      {error && <p className="text-red-600 text-sm">{error}</p>}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
-          <input value={description} onChange={(e) => setDescription(e.target.value)} className="w-full rounded border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Total Amount</label>
-          <input type="number" step="0.01" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} className="w-full rounded border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Participants</label>
-          <input type="number" min={2} value={totalParticipants} onChange={(e) => setTotalParticipants(e.target.value)} className="w-full rounded border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2" />
-        </div>
+    <form onSubmit={submit} style={{ background:C.raised, border:`1px solid ${C.borderHi}`, borderRadius:14, padding:'1.2rem', display:'flex', flexDirection:'column', gap:'1rem', marginTop:'0.75rem' }}>
+      {error && <div style={{ padding:'8px 12px', borderRadius:8, background:'rgba(240,91,124,.1)', border:`1px solid rgba(240,91,124,.3)`, color:C.red, fontSize:13 }}>⚠ {error}</div>}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+        <div><label style={LABEL}>Description</label><input style={INPUT} value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Trip / Dinner" required /></div>
+        <div><label style={LABEL}>Total Amount (₹)</label><input style={INPUT} type="number" step="0.01" value={amt} onChange={e=>setAmt(e.target.value)} placeholder="0.00" required /></div>
+        <div><label style={LABEL}>No. of People</label><input style={INPUT} type="number" min={2} value={ppl} onChange={e=>setPpl(e.target.value)} required /></div>
       </div>
-      <div className="flex justify-end gap-2">
-        <button type="button" onClick={onClose} className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700">Cancel</button>
-        <button type="submit" className="px-3 py-2 rounded bg-primary text-white">Save</button>
+      <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+        <button type="button" onClick={onClose} style={{ padding:'9px 18px', borderRadius:9, border:`1.5px solid ${C.borderHi}`, background:C.surface, color:C.txt2, fontSize:13, fontWeight:600, cursor:'pointer' }}>Cancel</button>
+        <button type="submit" style={{ padding:'9px 18px', borderRadius:9, border:'none', background:`linear-gradient(135deg,${C.violet},#7c5ce0)`, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>Save</button>
       </div>
     </form>
   );
@@ -48,65 +41,79 @@ const InlineGroupExpenseForm = ({ onSave, onClose }) => {
 
 const GroupSplitView = ({ splitExpenses = [], addSplitExpense }) => {
   const [showForm, setShowForm] = useState(false);
+  const { totalOwed, netBalance } = useMemo(() => {
+    let totalOwed = 0;
+    splitExpenses.forEach(e => { totalOwed += e.totalAmount - (e.totalAmount / e.totalParticipants); });
+    return { totalOwed, netBalance: totalOwed };
+  }, [splitExpenses]);
 
-  const calculateBalances = (expenses) => {
-    let totalOwedToUser = 0;
-    expenses.forEach(exp => {
-      const splitPerPerson = exp.totalAmount / exp.totalParticipants;
-      const totalOwedByFriends = exp.totalAmount - splitPerPerson;
-      totalOwedToUser += totalOwedByFriends;
-    });
-    return { totalOwedToUser, netBalance: totalOwedToUser };
-  };
-
-  const balances = useMemo(() => calculateBalances(splitExpenses), [splitExpenses]);
-
-  const handleSave = (payload) => {
-    addSplitExpense(payload);
-  };
+  const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })}`;
 
   return (
-    <div className="space-y-8">
-      <h2 className="text-3xl font-bold flex items-center text-indigo-600 dark:text-indigo-400">
-        <Users className='w-7 h-7 mr-2' /> Group Expense Splitter
-      </h2>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <StatCard title="Total Owed TO YOU" value={balances.totalOwedToUser} icon={ArrowUp} color="#10B981" trend={0} />
-        <StatCard title="Net Split Balance" value={balances.netBalance} icon={GitMerge} color="#6366F1" trend={0} />
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
+      {/* Header */}
+      <div>
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+          <div style={{ width:38, height:38, borderRadius:10, background:`${C.violet}18`, border:`1px solid ${C.violet}30`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <Users size={18} color={C.violet} />
+          </div>
+          <h2 style={{ fontSize:22, fontWeight:800, color:C.txt }}>Group Expenses</h2>
+        </div>
+        <p style={{ fontSize:13, color:C.txt3 }}>Track what friends owe you</p>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="text-xl font-bold">Trip History (You Paid)</h3>
-          <button onClick={() => setShowForm(true)} className="flex items-center px-3 py-1 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md text-sm">
-            <Plus className="w-4 h-4 mr-1" /> Log New Group Expense
+      {/* Summary Cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem' }}>
+        {[
+          { label:'Total Owed to You', value: fmt(totalOwed), color:C.green, icon: ArrowDown },
+          { label:'Net Split Balance',  value: fmt(netBalance), color:C.violet, icon: GitMerge },
+        ].map(({ label, value, color, icon:Icon }) => (
+          <div key={label} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:16, padding:'1.1rem 1.3rem', display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ width:40, height:40, borderRadius:11, background:`${color}18`, border:`1px solid ${color}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <Icon size={18} color={color}/>
+            </div>
+            <div>
+              <p style={{ fontSize:11, fontWeight:700, color:C.txt3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:3 }}>{label}</p>
+              <p style={{ fontSize:20, fontWeight:800, color }}>{value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* History */}
+      <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:18, padding:'1.4rem', display:'flex', flexDirection:'column', gap:'1rem' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <h3 style={{ fontSize:15, fontWeight:700, color:C.txt }}>Group Expense History</h3>
+          <button onClick={() => setShowForm(s=>!s)} style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 14px', borderRadius:9, border:'none', background:`linear-gradient(135deg,${C.violet},#7c5ce0)`, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            <Plus size={14}/> Log Expense
           </button>
         </div>
 
-        {showForm && (
-          <InlineGroupExpenseForm onSave={handleSave} onClose={() => setShowForm(false)} />
-        )}
+        {showForm && <InlineForm onSave={addSplitExpense} onClose={() => setShowForm(false)} />}
 
-        <div className="space-y-3 pt-3">
-          {splitExpenses.map((exp) => {
-            const splitAmount = exp.totalAmount / exp.totalParticipants;
-            const owedToUser = exp.totalAmount - splitAmount;
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {splitExpenses.map(exp => {
+            const share   = exp.totalAmount / exp.totalParticipants;
+            const owedToU = exp.totalAmount - share;
             return (
-              <div key={exp.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-l-4 border-indigo-500 shadow-sm">
-                <div className="flex justify-between items-start">
-                  <span className="text-lg font-semibold">{exp.description}</span>
-                  <span className='text-sm font-bold text-indigo-600'>₹{Number(exp.totalAmount).toFixed(2)} Paid</span>
+              <div key={exp.id} style={{ background:C.raised, borderRadius:12, padding:'1rem 1.2rem', borderLeft:`3px solid ${C.violet}` }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                  <span style={{ fontSize:15, fontWeight:700, color:C.txt }}>{exp.description}</span>
+                  <span style={{ fontSize:14, fontWeight:700, color:C.violet }}>{fmt(exp.totalAmount)} paid</span>
                 </div>
-                <p className="text-sm mt-1 text-gray-500">Participants: {exp.totalParticipants} people (You + {exp.totalParticipants - 1} friends)</p>
-                <div className='mt-2'>
-                  <p className='text-green-600 font-medium'>Each friend owes: ₹{splitAmount.toFixed(2)}</p>
-                  <p className='sm'>Total owed to you: <span className='font-bold text-green-700'>₹{owedToUser.toFixed(2)}</span></p>
+                <p style={{ fontSize:13, color:C.txt3, marginBottom:6 }}>{exp.totalParticipants} people — You + {exp.totalParticipants-1} friend{exp.totalParticipants>2?'s':''}</p>
+                <div style={{ display:'flex', gap:16 }}>
+                  <span style={{ fontSize:13, color:C.txt2 }}>Each owes: <strong style={{ color:C.green }}>{fmt(share)}</strong></span>
+                  <span style={{ fontSize:13, color:C.txt2 }}>You get back: <strong style={{ color:C.green }}>{fmt(owedToU)}</strong></span>
                 </div>
               </div>
             );
           })}
-          {splitExpenses.length === 0 && <p className='text-gray-500 italic'>No group expenses logged yet.</p>}
+          {splitExpenses.length === 0 && (
+            <div style={{ padding:'2.5rem', textAlign:'center', color:C.txt3, fontSize:14 }}>
+              No group expenses yet. Log your first one!
+            </div>
+          )}
         </div>
       </div>
     </div>

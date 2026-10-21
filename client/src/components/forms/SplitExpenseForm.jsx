@@ -43,15 +43,19 @@ const SplitExpenseForm = ({ categories = [], addTransaction, onClose }) => {
     const each = Number((total / peopleCount).toFixed(2));
     const adjust = Number((total - each * peopleCount).toFixed(2));
     setSubmitting(true);
+    // Resolve category name so split transactions are properly categorised
+    const cat = categories.find(c => c.id === Number(categoryId));
     try {
       for (let i = 0; i < peopleCount; i++) {
         const portion = i === 0 ? each + adjust : each;
         await addTransaction({
-          amount: portion,
+          amount:     portion,
           description: `${description} (Split: ${names[i]})`,
           date,
+          category:   cat?.name || 'Others',
           categoryId: Number(categoryId),
-          notes: `Split bill among ${peopleCount}`,
+          type:       cat?.type || 'expense',
+          notes:      `Split bill among ${peopleCount}`,
         });
       }
       onClose && onClose();

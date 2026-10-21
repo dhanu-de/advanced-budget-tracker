@@ -1,220 +1,179 @@
 import React, { useState } from 'react';
-import {
-  User, Mail, Edit3, Save, X, TrendingUp, TrendingDown,
-  Target, CreditCard, ShieldCheck, LogOut, Trash2, Bell
-} from 'lucide-react';
+import { User, Mail, Edit3, Save, X, TrendingUp, TrendingDown, Target, CreditCard, ShieldCheck, LogOut, Trash2, Bell } from 'lucide-react';
+
+const C = {
+  surface:'#0d1526', raised:'#111e33', hover:'#172238', border:'#1a2d47', borderHi:'#233d5e',
+  txt:'#dce8f5', txt2:'#7a98b8', txt3:'#3f5977',
+  accent:'#5b6ff0', green:'#22d3a0', red:'#f05b7c', violet:'#9b7bf0', amber:'#f0a533', sky:'#38c4f5',
+};
 
 const ProfileView = ({ user, transactions, goals, categories, onLogout, onUpdateName }) => {
-  const [editing, setEditing] = useState(false);
-  const [newName, setNewName] = useState(user?.name || '');
-  const [saving, setSaving] = useState(false);
+  const [editing,           setEditing]           = useState(false);
+  const [newName,           setNewName]           = useState(user?.name || '');
+  const [saving,            setSaving]            = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [notificationsOn, setNotificationsOn] = useState(false);
+  const [notificationsOn,   setNotificationsOn]   = useState(false);
 
-  // ─── Stats ─────────────────────────────────────────────────────────────────
-  const totalIncome = transactions
-    .filter(t => t.type === 'income')
-    .reduce((s, t) => s + Number(t.amount), 0);
-
-  const totalExpense = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((s, t) => s + Number(t.amount), 0);
-
-  const balance = totalIncome - totalExpense;
-  const savingsRate = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(0) : 0;
+  const totalIncome  = transactions.filter(t => t.type === 'income').reduce((s,t) => s + Number(t.amount), 0);
+  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s,t) => s + Number(t.amount), 0);
+  const balance      = totalIncome - totalExpense;
+  const savingsRate  = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(0) : 0;
   const completedGoals = goals.filter(g => Number(g.saved) >= Number(g.target)).length;
+  const fmt = n => `₹${Number(n).toLocaleString('en-IN')}`;
 
   const handleSaveName = async () => {
     if (!newName.trim()) return;
     setSaving(true);
-    try {
-      await onUpdateName(newName.trim());
-      setEditing(false);
-    } catch {
-      // fail silently
-    }
+    try { await onUpdateName(newName.trim()); setEditing(false); } catch {}
     setSaving(false);
   };
 
   const getInitials = (name, email) => {
-    if (name && name.trim()) return name.trim().slice(0, 2).toUpperCase();
-    if (email) return email.slice(0, 2).toUpperCase();
+    if (name?.trim()) return name.trim().slice(0,2).toUpperCase();
+    if (email) return email.slice(0,2).toUpperCase();
     return 'BF';
   };
 
   const memberSince = user?.createdAt
-    ? new Date(user.createdAt).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+    ? new Date(user.createdAt).toLocaleDateString('en-IN', { month:'long', year:'numeric' })
     : 'Recently joined';
 
-  const statCards = [
-    { label: 'Total Income', value: `₹${totalIncome.toLocaleString('en-IN')}`, icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-    { label: 'Total Expenses', value: `₹${totalExpense.toLocaleString('en-IN')}`, icon: TrendingDown, color: 'text-rose-400', bg: 'bg-rose-500/10 border-rose-500/20' },
-    { label: 'Net Balance', value: `₹${Math.abs(balance).toLocaleString('en-IN')}`, icon: CreditCard, color: balance >= 0 ? 'text-emerald-400' : 'text-rose-400', bg: balance >= 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20' },
-    { label: 'Savings Rate', value: `${savingsRate}%`, icon: ShieldCheck, color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20' },
-    { label: 'Transactions', value: transactions.length, icon: CreditCard, color: 'text-sky-400', bg: 'bg-sky-500/10 border-sky-500/20' },
-    { label: 'Goals Done', value: `${completedGoals}/${goals.length}`, icon: Target, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+  const stats = [
+    { label:'Total Income',  value: fmt(totalIncome),          color: C.green,  icon: TrendingUp },
+    { label:'Total Expenses',value: fmt(totalExpense),         color: C.red,    icon: TrendingDown },
+    { label:'Net Balance',   value: fmt(Math.abs(balance)),    color: balance>=0?C.green:C.red, icon: CreditCard },
+    { label:'Savings Rate',  value: `${savingsRate}%`,         color: C.violet, icon: ShieldCheck },
+    { label:'Transactions',  value: transactions.length,       color: C.sky,    icon: CreditCard },
+    { label:'Goals Done',    value: `${completedGoals}/${goals.length}`, color: C.amber, icon: Target },
   ];
 
-  return (
-    <div className="max-w-2xl mx-auto pb-24 md:pb-6 space-y-5">
+  const SettingRow = ({ icon:Icon, color, title, sub, right }) => (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderTop:`1px solid ${C.border}` }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+        <div style={{ width:36, height:36, borderRadius:9, background:`${color}15`, border:`1px solid ${color}30`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <Icon size={16} color={color}/>
+        </div>
+        <div>
+          <p style={{ fontSize:14, fontWeight:600, color:C.txt, marginBottom:1 }}>{title}</p>
+          <p style={{ fontSize:12, color:C.txt3 }}>{sub}</p>
+        </div>
+      </div>
+      {right}
+    </div>
+  );
 
-      {/* ── Profile Card ─────────────────────────────────────────────────────── */}
-      <div className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 shadow-2xl">
+  return (
+    <div style={{ maxWidth:600, margin:'0 auto', paddingBottom:'5rem', display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+
+      {/* Profile Card */}
+      <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:20, overflow:'hidden' }}>
         {/* Banner */}
-        <div className="h-28 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 relative">
-          <div className="absolute inset-0 opacity-20"
-            style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }}
-          />
+        <div style={{ height:100, background:`linear-gradient(135deg, #1e2a4a, #2d1f4e, #1a2d5a)`, position:'relative', overflow:'hidden' }}>
+          <div style={{ position:'absolute', inset:0, opacity:.15, backgroundImage:'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize:'20px 20px' }}/>
+          <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', background:C.accent, opacity:.12, filter:'blur(30px)' }}/>
         </div>
 
-        <div className="px-6 pb-6">
-          {/* Avatar */}
-          <div className="flex items-end justify-between -mt-10 mb-4">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-2xl font-bold border-4 border-gray-900 shadow-xl select-none">
+        <div style={{ padding:'0 1.4rem 1.4rem' }}>
+          <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginTop:-36, marginBottom:14 }}>
+            <div style={{ width:72, height:72, borderRadius:16, background:`linear-gradient(135deg,${C.accent},#4254db)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:22, fontWeight:800, border:`3px solid ${C.surface}`, boxShadow:'0 8px 24px rgba(91,111,240,.35)' }}>
               {getInitials(user?.name, user?.email)}
             </div>
-            <button
-              onClick={() => { setEditing(true); setNewName(user?.name || ''); }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition-colors border border-gray-700"
-            >
-              <Edit3 className="w-3.5 h-3.5" /> Edit
+            <button onClick={() => { setEditing(true); setNewName(user?.name||''); }}
+              style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 12px', borderRadius:9, border:`1.5px solid ${C.borderHi}`, background:C.raised, color:C.txt2, fontSize:13, fontWeight:600, cursor:'pointer' }}>
+              <Edit3 size={13}/> Edit
             </button>
           </div>
 
-          {/* Name & email */}
           {editing ? (
-            <div className="flex items-center gap-2 mb-3">
-              <input
-                autoFocus
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSaveName()}
-                className="flex-1 bg-gray-800 text-white text-xl font-bold rounded-lg px-3 py-1.5 border border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="Your name"
-              />
-              <button onClick={handleSaveName} disabled={saving}
-                className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
-                <Save className="w-4 h-4" />
-              </button>
-              <button onClick={() => setEditing(false)}
-                className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
+            <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+              <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSaveName()}
+                style={{ flex:1, background:C.raised, color:C.txt, border:`1.5px solid ${C.accent}`, borderRadius:10, padding:'9px 13px', fontSize:16, fontWeight:700, fontFamily:'Inter,sans-serif', outline:'none' }} placeholder="Your name" />
+              <button onClick={handleSaveName} disabled={saving} style={{ width:40, height:40, borderRadius:9, border:'none', background:C.accent, color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}><Save size={15}/></button>
+              <button onClick={()=>setEditing(false)} style={{ width:40, height:40, borderRadius:9, border:`1.5px solid ${C.borderHi}`, background:C.raised, color:C.txt2, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}><X size={15}/></button>
             </div>
           ) : (
-            <h2 className="text-2xl font-bold text-white mb-1">{user?.name || 'BudgetFlow User'}</h2>
+            <h2 style={{ fontSize:20, fontWeight:800, color:C.txt, marginBottom:6 }}>{user?.name || 'BudgetFlow User'}</h2>
           )}
 
-          <div className="flex items-center gap-2 text-gray-400 text-sm mb-2">
-            <Mail className="w-3.5 h-3.5" />
-            <span>{user?.email}</span>
+          <div style={{ display:'flex', alignItems:'center', gap:6, color:C.txt3, fontSize:13, marginBottom:4 }}>
+            <Mail size={13}/> <span>{user?.email}</span>
           </div>
-          <div className="flex items-center gap-2 text-gray-500 text-xs">
-            <User className="w-3 h-3" />
-            <span>Member since {memberSince}</span>
-            {user?.isGuest && (
-              <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs border border-amber-500/30">Guest</span>
-            )}
+          <div style={{ display:'flex', alignItems:'center', gap:6, color:C.txt3, fontSize:12 }}>
+            <User size={12}/> <span>Member since {memberSince}</span>
+            {user?.isGuest && <span style={{ marginLeft:6, padding:'2px 8px', borderRadius:20, background:`${C.amber}18`, color:C.amber, border:`1px solid ${C.amber}33`, fontSize:11, fontWeight:700 }}>Guest</span>}
           </div>
         </div>
       </div>
 
-      {/* ── Stats Grid ───────────────────────────────────────────────────────── */}
+      {/* Stats Grid */}
       <div>
-        <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3 px-1">Financial Summary</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {statCards.map(({ label, value, icon: Icon, color, bg }) => (
-            <div key={label} className={`rounded-xl p-4 border ${bg} flex items-center gap-3`}>
-              <div className={`p-2 rounded-lg bg-gray-900/50`}>
-                <Icon className={`w-5 h-5 ${color}`} />
+        <p style={{ fontSize:11, fontWeight:700, color:C.txt3, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>Financial Summary</p>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+          {stats.map(({ label, value, color, icon:Icon }) => (
+            <div key={label} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:'14px 16px', display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ width:36, height:36, borderRadius:9, background:`${color}15`, border:`1px solid ${color}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <Icon size={16} color={color}/>
               </div>
-              <div>
-                <p className="text-gray-400 text-xs">{label}</p>
-                <p className={`text-base font-bold ${color}`}>{value}</p>
+              <div style={{ minWidth:0 }}>
+                <p style={{ fontSize:11, color:C.txt3, marginBottom:2 }}>{label}</p>
+                <p style={{ fontSize:16, fontWeight:800, color, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{value}</p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Settings ─────────────────────────────────────────────────────────── */}
+      {/* Settings */}
       <div>
-        <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3 px-1">Settings</h3>
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800 overflow-hidden">
-
-          {/* Notifications toggle */}
-          <div className="flex items-center justify-between px-5 py-4">
-            <div className="flex items-center gap-3">
-              <Bell className="w-5 h-5 text-gray-400" />
+        <p style={{ fontSize:11, fontWeight:700, color:C.txt3, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>Settings</p>
+        <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:18, overflow:'hidden' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ width:36, height:36, borderRadius:9, background:`${C.accent}15`, border:`1px solid ${C.accent}30`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <Bell size={16} color={C.accent}/>
+              </div>
               <div>
-                <p className="text-white text-sm font-medium">Notifications</p>
-                <p className="text-gray-500 text-xs">Budget alerts &amp; reminders</p>
+                <p style={{ fontSize:14, fontWeight:600, color:C.txt, marginBottom:1 }}>Notifications</p>
+                <p style={{ fontSize:12, color:C.txt3 }}>Budget alerts & reminders</p>
               </div>
             </div>
-            <button
-              onClick={() => setNotificationsOn(p => !p)}
-              className={`relative w-11 h-6 rounded-full transition-colors ${notificationsOn ? 'bg-emerald-500' : 'bg-gray-700'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${notificationsOn ? 'translate-x-5' : ''}`} />
+            <button onClick={()=>setNotificationsOn(p=>!p)} style={{ width:44, height:24, borderRadius:12, border:'none', background: notificationsOn ? C.accent : C.raised, position:'relative', cursor:'pointer', transition:'background .2s', flexShrink:0 }}>
+              <span style={{ position:'absolute', top:2, left: notificationsOn?22:2, width:20, height:20, borderRadius:'50%', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.4)', transition:'left .2s' }}/>
             </button>
           </div>
-
-          {/* App version */}
-          <div className="flex items-center justify-between px-5 py-4">
-            <div className="flex items-center gap-3">
-              <ShieldCheck className="w-5 h-5 text-gray-400" />
-              <div>
-                <p className="text-white text-sm font-medium">App Version</p>
-                <p className="text-gray-500 text-xs">BudgetFlow v1.0.0 — PWA</p>
-              </div>
-            </div>
-            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">Latest</span>
-          </div>
+          <SettingRow icon={ShieldCheck} color={C.green} title="App Version" sub="BudgetFlow v1.0 — PWA"
+            right={<span style={{ padding:'3px 10px', borderRadius:20, background:`${C.green}18`, color:C.green, border:`1px solid ${C.green}33`, fontSize:11, fontWeight:700 }}>Latest</span>} />
         </div>
       </div>
 
-      {/* ── Danger Zone ──────────────────────────────────────────────────────── */}
+      {/* Account */}
       <div>
-        <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3 px-1">Account</h3>
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800 overflow-hidden">
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-800 transition-colors text-left"
-          >
-            <LogOut className="w-5 h-5 text-amber-400" />
+        <p style={{ fontSize:11, fontWeight:700, color:C.txt3, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>Account</p>
+        <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:18, overflow:'hidden' }}>
+          <button onClick={onLogout} style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'14px 18px', border:'none', background:'none', cursor:'pointer', textAlign:'left', transition:'background .15s' }}
+            onMouseEnter={e=>e.currentTarget.style.background=C.hover} onMouseLeave={e=>e.currentTarget.style.background='none'}>
+            <div style={{ width:36, height:36, borderRadius:9, background:`${C.amber}15`, border:`1px solid ${C.amber}30`, display:'flex', alignItems:'center', justifyContent:'center' }}><LogOut size={16} color={C.amber}/></div>
             <div>
-              <p className="text-white text-sm font-medium">Sign Out</p>
-              <p className="text-gray-500 text-xs">Log out of your account</p>
+              <p style={{ fontSize:14, fontWeight:600, color:C.txt, marginBottom:1 }}>Sign Out</p>
+              <p style={{ fontSize:12, color:C.txt3 }}>Log out of your account</p>
             </div>
           </button>
 
           {!showDeleteConfirm ? (
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-800 transition-colors text-left"
-            >
-              <Trash2 className="w-5 h-5 text-rose-400" />
+            <button onClick={()=>setShowDeleteConfirm(true)} style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'14px 18px', borderTop:`1px solid ${C.border}`, border:'none', borderTopWidth:1, borderTopStyle:'solid', borderTopColor:C.border, background:'none', cursor:'pointer', textAlign:'left', transition:'background .15s' }}
+              onMouseEnter={e=>e.currentTarget.style.background=C.hover} onMouseLeave={e=>e.currentTarget.style.background='none'}>
+              <div style={{ width:36, height:36, borderRadius:9, background:`${C.red}15`, border:`1px solid ${C.red}30`, display:'flex', alignItems:'center', justifyContent:'center' }}><Trash2 size={16} color={C.red}/></div>
               <div>
-                <p className="text-rose-400 text-sm font-medium">Delete Account</p>
-                <p className="text-gray-500 text-xs">Permanently remove all your data</p>
+                <p style={{ fontSize:14, fontWeight:600, color:C.red, marginBottom:1 }}>Delete Account</p>
+                <p style={{ fontSize:12, color:C.txt3 }}>Permanently remove all your data</p>
               </div>
             </button>
           ) : (
-            <div className="px-5 py-4 bg-rose-500/5">
-              <p className="text-rose-300 text-sm mb-3">Are you sure? This cannot be undone.</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={onLogout}
-                  className="flex-1 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-medium transition-colors"
-                >
-                  Yes, Delete
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium transition-colors"
-                >
-                  Cancel
-                </button>
+            <div style={{ padding:'1rem 1.2rem', borderTop:`1px solid ${C.border}`, background:'rgba(240,91,124,.05)' }}>
+              <p style={{ fontSize:13, color:C.red, marginBottom:12 }}>Are you sure? This cannot be undone.</p>
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={onLogout} style={{ flex:1, padding:'9px', borderRadius:9, border:'none', background:C.red, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>Yes, Delete</button>
+                <button onClick={()=>setShowDeleteConfirm(false)} style={{ flex:1, padding:'9px', borderRadius:9, border:`1.5px solid ${C.borderHi}`, background:C.raised, color:C.txt2, fontSize:13, fontWeight:600, cursor:'pointer' }}>Cancel</button>
               </div>
             </div>
           )}

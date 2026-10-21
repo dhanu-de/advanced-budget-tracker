@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   addTransaction as addTransactionAPI,
   getTransactions as getTransactionsAPI,
@@ -18,6 +19,7 @@ import SplitBillView from './Split/SplitBillView';
 import GroupSplitView from './Split/GroupSplitView';
 import ProfileView from './Profile/ProfileView';
 import AIChatBot from '../components/shared/AIChatBot';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import {
   LayoutDashboard, ArrowLeftRight, Target,
   Scissors, Users, UserCircle, Menu, X, Download
@@ -54,6 +56,7 @@ export default function App() {
   const [showInstall,   setShowInstall]   = useState(false);
 
   const categories = DEFAULT_CATEGORIES;
+  const reduced    = useReducedMotion();
 
   // ── PWA install prompt ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -118,14 +121,25 @@ export default function App() {
   const addTransaction = async (data) => {
     if (!user) return false;
     try {
+      // Resolve category name from id if not already provided
+      const resolvedCat = data.categoryId != null
+        ? categories.find(c => c.id === Number(data.categoryId))
+        : null;
+      const categoryName = data.category || resolvedCat?.name || 'Others';
+      const categoryId   = data.categoryId != null ? Number(data.categoryId)
+                         : categories.find(c => c.name === categoryName)?.id ?? null;
+      // Resolve type from category when not explicitly set
+      const type = data.type || resolvedCat?.type || 'expense';
+
       const saved = await addTransactionAPI(user.id, {
-        title:    data.description || data.title || 'Transaction',
+        title:      data.description || data.title || 'Transaction',
         description: data.description || data.title,
-        amount:   data.amount,
-        category: data.category || 'Others',
-        type:     data.type     || 'expense',
-        notes:    data.notes    || '',
-        date:     data.date     || new Date().toISOString(),
+        amount:     data.amount,
+        category:   categoryName,
+        categoryId,
+        type,
+        notes:      data.notes || '',
+        date:       data.date  || new Date().toISOString(),
       });
       setTransactions(prev => [saved, ...prev]);
       return true;
@@ -190,12 +204,12 @@ export default function App() {
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-2xl font-bold mb-6 shadow-2xl">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-bf-bg">
+        <div className="w-16 h-16 rounded-2xl bg-bf-accent flex items-center justify-center text-white text-2xl font-bold mb-6 shadow-2xl">
           BF
         </div>
-        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-gray-400 text-sm font-medium">Loading BudgetFlow…</p>
+        <div className="w-10 h-10 border-4 border-bf-accent border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-bf-txt2 text-sm font-medium">Loading BudgetFlow…</p>
       </div>
     );
   }
@@ -221,16 +235,20 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-950 text-white">
+    <div className="flex min-h-screen bg-bf-bg text-bf-txt">
 
       {/* ── DESKTOP SIDEBAR ─────────────────────────────────────────────────── */}
-      <aside className={`hidden md:flex flex-col ${sidebarOpen ? 'w-60' : 'w-20'} bg-gray-900 border-r border-gray-800 transition-[width] duration-200 shrink-0`}>
-        <div className="p-4 flex items-center justify-between border-b border-gray-800">
+      <aside className={`hidden md:flex flex-col ${sidebarOpen ? 'w-60' : 'w-20'} bg-bf-surface border-r border-bf-border transition-[width] duration-200 shrink-0`}>
+        <div className="p-4 flex items-center justify-between border-b border-bf-border">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-bold shrink-0">BF</div>
-            {sidebarOpen && <span className="font-bold text-white truncate">BudgetFlow</span>}
+            <div className="w-9 h-9 rounded-xl bg-bf-accent flex items-center justify-center text-white text-sm font-bold shrink-0">BF</div>
+            {sidebarOpen && <span className="font-bold text-bf-txt truncate">BudgetFlow</span>}
           </div>
-          <button onClick={() => setSidebarOpen(p => !p)} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 transition-colors">
+          <button
+            onClick={() => setSidebarOpen(p => !p)}
+            aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            className="p-1.5 rounded-lg hover:bg-bf-hover text-bf-txt2 transition-colors focus-bf"
+          >
             {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>
         </div>
@@ -240,10 +258,12 @@ export default function App() {
             <button
               key={key}
               onClick={() => setCurrentPage(key)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm font-medium ${
+              aria-label={label}
+              aria-current={currentPage === key ? 'page' : undefined}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm font-medium focus-bf ${
                 currentPage === key
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/50'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  ? 'bg-bf-accent text-white shadow-lg shadow-bf-accent/20'
+                  : 'text-bf-txt2 hover:bg-bf-hover hover:text-bf-txt'
               }`}
             >
               <Icon className="w-5 h-5 shrink-0" />
@@ -252,15 +272,18 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="p-3 border-t border-gray-800">
-          <button onClick={() => setCurrentPage('profile')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 transition-colors">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+        <div className="p-3 border-t border-bf-border">
+          <button
+            onClick={() => setCurrentPage('profile')}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-bf-hover transition-colors focus-bf"
+          >
+            <div className="w-8 h-8 rounded-lg bg-bf-accent flex items-center justify-center text-white text-xs font-bold shrink-0">
               {getInitials(user.name, user.email)}
             </div>
             {sidebarOpen && (
               <div className="overflow-hidden text-left">
-                <p className="text-white text-sm font-medium truncate">{user.name || 'User'}</p>
-                <p className="text-gray-500 text-xs truncate">{user.email}</p>
+                <p className="text-bf-txt  text-sm font-medium truncate">{user.name || 'User'}</p>
+                <p className="text-bf-txt3 text-xs truncate">{user.email}</p>
               </div>
             )}
           </button>
@@ -271,45 +294,61 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* Mobile top bar */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-800 sticky top-0 z-30">
+        <header className="md:hidden flex items-center justify-between px-4 py-3 bg-bf-surface border-b border-bf-border sticky top-0 z-30">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold">BF</div>
-            <span className="font-bold text-white text-sm">BudgetFlow</span>
+            <div className="w-8 h-8 rounded-xl bg-bf-accent flex items-center justify-center text-white text-xs font-bold">BF</div>
+            <span className="font-bold text-bf-txt text-sm">BudgetFlow</span>
           </div>
-          <button onClick={() => setCurrentPage('profile')} className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-bold">
+          <button
+            onClick={() => setCurrentPage('profile')}
+            aria-label="Go to profile"
+            className="w-9 h-9 rounded-full bg-bf-accent flex items-center justify-center text-white text-sm font-bold focus-bf"
+          >
             {getInitials(user.name, user.email)}
           </button>
         </header>
 
         {/* PWA install banner */}
         {showInstall && (
-          <div className="flex items-center justify-between gap-3 px-4 py-3 bg-emerald-900/60 border-b border-emerald-700/50">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 bg-bf-accent/10 border-b border-bf-accent/30">
             <div className="flex items-center gap-2.5 min-w-0">
-              <Download className="w-4 h-4 text-emerald-400 shrink-0" />
-              <p className="text-emerald-200 text-sm truncate">Install BudgetFlow on your phone!</p>
+              <Download className="w-4 h-4 text-bf-accent shrink-0" />
+              <p className="text-bf-txt text-sm truncate">Install BudgetFlow on your phone!</p>
             </div>
             <div className="flex gap-2 shrink-0">
-              <button onClick={handleInstall} className="text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-white px-3 py-1.5 rounded-lg transition-colors">Install</button>
-              <button onClick={() => setShowInstall(false)} className="text-xs text-gray-400 hover:text-white px-2">✕</button>
+              <button onClick={handleInstall} className="text-xs font-semibold bg-bf-accent hover:bg-bf-accent2 text-white px-3 py-1.5 rounded-lg transition-colors focus-bf">Install</button>
+              <button onClick={() => setShowInstall(false)} className="text-xs text-bf-txt2 hover:text-bf-txt px-2 focus-bf">✕</button>
             </div>
           </div>
         )}
 
-        {/* Page content */}
+        {/* Page content — framer-motion page transitions */}
         <main className="flex-1 overflow-auto p-4 md:p-6 pb-24 md:pb-6">
-          {renderPage()}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={currentPage}
+              initial={reduced ? {} : { opacity: 0, y: 12 }}
+              animate={reduced ? {} : { opacity: 1, y: 0  }}
+              exit={reduced   ? {} : { opacity: 0, y: -8  }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              {renderPage()}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 
       {/* ── MOBILE BOTTOM NAV ───────────────────────────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-lg border-t border-gray-800 safe-area-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-bf-surface/95 backdrop-blur-lg border-t border-bf-border safe-area-bottom">
         <div className="flex items-center justify-around px-1 py-2">
           {NAV_ITEMS.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setCurrentPage(key)}
-              className={`flex flex-col items-center gap-1 px-2 py-1.5 rounded-xl transition-all min-w-0 ${
-                currentPage === key ? 'text-emerald-400' : 'text-gray-500'
+              aria-label={label}
+              aria-current={currentPage === key ? 'page' : undefined}
+              className={`flex flex-col items-center gap-1 px-2 py-1.5 rounded-xl transition-all min-w-0 focus-bf ${
+                currentPage === key ? 'text-bf-accent' : 'text-bf-txt3'
               }`}
             >
               <Icon className={`w-5 h-5 transition-transform ${currentPage === key ? 'scale-110' : ''}`} />

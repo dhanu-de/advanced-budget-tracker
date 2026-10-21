@@ -87,14 +87,16 @@ export const getTransactions = async (userId) => {
 export const addTransaction = async (userId, tx) => {
   const txs = get(txKey(userId), []);
   const saved = {
-    id:       uid(),
+    id:         uid(),
     userId,
-    title:    tx.title || tx.description || 'Transaction',
-    amount:   Number(tx.amount),
-    category: tx.category || 'Others',
-    type:     tx.type     || 'expense',
-    notes:    tx.notes    || '',
-    date:     tx.date     || new Date().toISOString(),
+    title:      tx.title || tx.description || 'Transaction',
+    amount:     Number(tx.amount),
+    // Store BOTH so every lookup strategy (by id or by name) succeeds
+    category:   tx.category   || 'Others',
+    categoryId: tx.categoryId != null ? Number(tx.categoryId) : null,
+    type:       tx.type       || 'expense',
+    notes:      tx.notes      || '',
+    date:       tx.date       || new Date().toISOString(),
   };
   set(txKey(userId), [saved, ...txs]);
   return { ...saved, description: saved.title };

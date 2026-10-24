@@ -57,13 +57,13 @@ export default function AIChatBot({ transactions = [], categories = [], goals = 
           fontFamily:'Inter,sans-serif',
         }}>
           {/* Header */}
-          <div style={{ padding:'14px 16px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ padding:'14px 16px', background:'linear-gradient(135deg,#4285f4,#5b6ff0)', display:'flex', alignItems:'center', gap:10 }}>
             <div style={{ width:32, height:32, borderRadius:'50%', background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
               <Bot size={16} color="#fff"/>
             </div>
             <div>
               <p style={{ color:'#fff', fontWeight:700, fontSize:14 }}>BudgetFlow AI</p>
-              <p style={{ color:'rgba(255,255,255,0.75)', fontSize:11 }}>Powered by Groq Llama 3</p>
+              <p style={{ color:'rgba(255,255,255,0.75)', fontSize:11 }}>Powered by Gemini 2.0 Flash ✨</p>
             </div>
           </div>
 

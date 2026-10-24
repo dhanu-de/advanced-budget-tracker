@@ -1,116 +1,155 @@
-// Groq AI Service — OpenAI-compatible, blazing fast, generous free tier
-// Free tier: 30 req/min, 14,400 req/day on llama-3.3-70b-versatile
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
-const PLACEHOLDER = 'your_groq_api_key_here';
-
 /**
- * Build a rich financial context string from app data
+ * geminiService.js
+ * Uses Google Gemini 2.0 Flash — best free AI model available.
+ *
+ * Free limits (Google AI Studio key):
+ *   • 15 requests / minute
+ *   • 1,500 requests / day
+ *   • 1,000,000 tokens / day
+ *   • NO credit card required
+ *
+ * Get your free API key at: https://aistudio.google.com/app/apikey
+ * Add to .env: VITE_GEMINI_API_KEY=AIza...
  */
-export const buildFinancialContext = (transactions, categories, goals) => {
-    const totalIncome = transactions
-        .filter(t => categories.find(c => c.id === t.categoryId)?.type === 'income')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
 
-    const totalExpense = transactions
-        .filter(t => categories.find(c => c.id === t.categoryId)?.type === 'expense')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-    const balance = totalIncome - totalExpense;
-    const savingsRate = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : 0;
+const MODEL_NAME  = 'gemini-2.0-flash';
+const PLACEHOLDER = 'your_gemini_api_key_here';
 
-    const categoryBreakdown = {};
-    transactions.forEach(t => {
-        const cat = categories.find(c => c.id === t.categoryId);
-        if (cat) {
-            categoryBreakdown[cat.name] = (categoryBreakdown[cat.name] || 0) + Number(t.amount);
-        }
-    });
+// ── Build financial context string ────────────────────────────────────────────
+export const buildFinancialContext = (transactions = [], categories = [], goals = []) => {
+  let income = 0, expense = 0;
+  const catBreakdown = {};
+  const monthlyMap   = {};
 
-    const categoryStr = Object.entries(categoryBreakdown)
-        .map(([name, amt]) => `  - ${name}: ₹${amt.toFixed(2)}`)
-        .join('\n') || '  - No transactions yet';
+  for (const t of transactions) {
+    const cat  = categories.find(c => c.id === t.categoryId || c.name === t.category);
+    const type = cat?.type || t.type || 'expense';
+    const amt  = Math.abs(Number(t.amount) || 0);
+    const name = cat?.name || t.category || 'Others';
 
-    const goalsStr = goals
-        .map(g => `  - ${g.title}: saved ₹${g.saved.toFixed(2)} of ₹${g.target.toFixed(2)} (${Math.min(100, ((g.saved / g.target) * 100)).toFixed(1)}%)`)
-        .join('\n') || '  - No goals set yet';
+    if (type === 'income') income  += amt;
+    else                   expense += amt;
 
-    return `USER'S FINANCIAL DATA:
-- Total Income: ₹${totalIncome.toFixed(2)}
-- Total Expenses: ₹${totalExpense.toFixed(2)}
-- Net Balance: ₹${balance.toFixed(2)}
-- Savings Rate: ${savingsRate}%
-- Total Transactions: ${transactions.length}
+    catBreakdown[name] = (catBreakdown[name] || 0) + amt;
+
+    // Monthly bucketing
+    const d  = new Date(t.date);
+    const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (!monthlyMap[mk]) monthlyMap[mk] = { income: 0, expense: 0 };
+    if (type === 'income') monthlyMap[mk].income  += amt;
+    else                   monthlyMap[mk].expense += amt;
+  }
+
+  const balance      = income - expense;
+  const savingsRate  = income > 0 ? ((balance / income) * 100).toFixed(1) : '0.0';
+
+  const catStr = Object.entries(catBreakdown)
+    .sort(([, a], [, b]) => b - a)
+    .map(([name, amt]) => `  • ${name}: ₹${amt.toLocaleString('en-IN')}`)
+    .join('\n') || '  • No transactions yet';
+
+  const goalsStr = goals.length
+    ? goals.map(g => {
+        const pct = g.target > 0 ? Math.min(100, (g.saved / g.target) * 100).toFixed(1) : 0;
+        return `  • ${g.title}: ₹${Number(g.saved).toLocaleString('en-IN')} saved of ₹${Number(g.target).toLocaleString('en-IN')} (${pct}%)`;
+      }).join('\n')
+    : '  • No goals set yet';
+
+  const recentStr = transactions.slice(0, 5)
+    .map(t => `  • ${t.description || t.title} — ₹${Number(t.amount).toLocaleString('en-IN')} (${t.type})`)
+    .join('\n') || '  • No recent transactions';
+
+  return `
+USER FINANCIAL SNAPSHOT (BudgetFlow):
+──────────────────────────────────────
+Total Income  : ₹${income.toLocaleString('en-IN')}
+Total Expenses: ₹${expense.toLocaleString('en-IN')}
+Net Balance   : ₹${balance.toLocaleString('en-IN')} (${balance >= 0 ? 'SURPLUS' : 'DEFICIT'})
+Savings Rate  : ${savingsRate}%
+Transactions  : ${transactions.length} total
 
 SPENDING BY CATEGORY:
-${categoryStr}
+${catStr}
 
-FINANCIAL GOALS:
-${goalsStr}`;
+SAVINGS GOALS:
+${goalsStr}
+
+5 MOST RECENT TRANSACTIONS:
+${recentStr}
+──────────────────────────────────────`.trim();
 };
 
-/**
- * Send a message to Groq (OpenAI-compatible API)
- */
+// ── Send message to Gemini 2.0 Flash ──────────────────────────────────────────
 export const sendMessageToGemini = async (userMessage, financialContext, chatHistory = []) => {
-    const key = import.meta.env.VITE_GROQ_API_KEY;
+  const key = import.meta.env.VITE_GEMINI_API_KEY;
 
-    if (!key || key === PLACEHOLDER) {
-        return "🔑 **API key not configured!**\n\nAdd your Groq key to the `.env` file as:\n`VITE_GROQ_API_KEY=gsk_...`\n\nGet a free key at: https://console.groq.com/keys";
-    }
+  if (!key || key === PLACEHOLDER || key.trim() === '') {
+    return [
+      '🔑 **Gemini API key not set!**',
+      '',
+      'To enable AI features:',
+      '1. Visit https://aistudio.google.com/app/apikey',
+      '2. Click **Create API Key** (100% free, no card needed)',
+      '3. Add to your `.env` file:',
+      '   `VITE_GEMINI_API_KEY=AIza...`',
+      '4. Redeploy or restart the dev server',
+    ].join('\n');
+  }
 
-    const systemPrompt = `You are BudgetFlow AI, a brilliant and friendly personal finance advisor embedded inside a budget tracking app.
-You have access to the user's real financial data below. Use it to give hyper-personalized, specific, and actionable advice.
-Be warm, encouraging, and concise (under 200 words unless asked for more).
-Always use Indian Rupees (₹). Give India-specific advice: mention SIP, PPF, NPS, ELSS, FD, Nifty 50, etc. when relevant.
-If the user asks a general finance question, still reference their actual numbers where helpful.
+  const systemInstruction = `You are BudgetFlow AI — a brilliant, warm, and concise personal finance advisor embedded in a budget tracking app for Indian users.
 
+You have real-time access to the user's financial data (provided below). Use it to give hyper-personalised, specific, and actionable advice.
+
+RULES:
+- Always use Indian Rupees (₹) and Indian number formatting (lakhs, crores)
+- Give India-specific advice: mention SIP, PPF, NPS, ELSS, FD, RD, Nifty 50, HDFC, SBI, etc. when relevant
+- Keep responses under 250 words unless the user asks for more detail
+- Be encouraging, empathetic, and non-judgmental
+- Reference the user's ACTUAL numbers whenever possible — never give generic advice
+- If asked general finance questions, still tie in their real data
+- Use bullet points and emojis to keep responses scannable
+
+USER'S CURRENT FINANCIAL DATA:
 ${financialContext}`;
 
-    // Build OpenAI-format messages
-    const messages = [
-        { role: 'system', content: systemPrompt },
-        ...chatHistory.map(msg => ({
-            role: msg.role === 'model' ? 'assistant' : 'user',
-            content: msg.text,
-        })),
-        { role: 'user', content: userMessage },
-    ];
+  try {
+    const genAI = new GoogleGenerativeAI(key);
+    const model = genAI.getGenerativeModel({
+      model: MODEL_NAME,
+      systemInstruction,
+    });
 
-    try {
-        const response = await fetch(GROQ_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${key}`,
-            },
-            body: JSON.stringify({
-                model: GROQ_MODEL,
-                messages,
-                temperature: 0.7,
-                max_tokens: 512,
-            }),
-        });
+    // Convert chat history to Gemini format
+    const history = chatHistory
+      .filter(m => m.text && m.text.trim())
+      .map(m => ({
+        role:  m.role === 'model' ? 'model' : 'user',
+        parts: [{ text: m.text }],
+      }));
 
-        if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            const errMsg = errData?.error?.message || response.statusText;
+    const chat  = model.startChat({ history });
+    const result = await chat.sendMessage(userMessage);
+    const text   = result.response.text();
 
-            if (response.status === 401) {
-                return "❌ **Invalid Groq API key!**\n\nPlease check your `VITE_GROQ_API_KEY` in `.env` and restart the server.";
-            }
-            if (response.status === 429) {
-                return "QUOTA_EXCEEDED:30";
-            }
-            return `⚠️ Error (${response.status}): ${errMsg}`;
-        }
+    return text || '🤔 I received an empty response. Please try again.';
 
-        const data = await response.json();
-        const text = data?.choices?.[0]?.message?.content;
-        return text || "🤔 I received an empty response. Please try again.";
+  } catch (err) {
+    console.error('Gemini error:', err);
 
-    } catch (error) {
-        console.error('Groq fetch error:', error);
-        return "🌐 **Network error.** Please check your internet connection and try again.";
+    const msg = err.message || '';
+
+    if (msg.includes('API_KEY_INVALID') || msg.includes('401')) {
+      return '❌ **Invalid API key.** Please check your `VITE_GEMINI_API_KEY` in `.env`.';
     }
+    if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('429')) {
+      return '⏳ **Rate limit reached.** You\'ve hit the free tier limit (15 req/min). Please wait a minute and try again.';
+    }
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+      return '🌐 **Network error.** Please check your internet connection and try again.';
+    }
+
+    return `⚠️ Error: ${msg || 'Something went wrong. Please try again.'}`;
+  }
 };

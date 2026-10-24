@@ -63,7 +63,7 @@ export default function AIChatBot({ transactions = [], categories = [], goals = 
             </div>
             <div>
               <p style={{ color:'#fff', fontWeight:700, fontSize:14 }}>BudgetFlow AI</p>
-              <p style={{ color:'rgba(255,255,255,0.75)', fontSize:11 }}>Powered by Gemini 2.0 Flash ✨</p>
+              <p style={{ color:'rgba(255,255,255,0.75)', fontSize:11 }}>Powered by Gemini 3.8 Flash ✨</p>
             </div>
           </div>
 

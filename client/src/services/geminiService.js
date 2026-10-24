@@ -121,13 +121,21 @@ ${financialContext}`;
       systemInstruction,
     });
 
-    // Convert chat history to Gemini format
-    const history = chatHistory
+    // Convert chat history to Gemini format.
+    // Gemini requires history to START with a 'user' message — strip any
+    // leading 'model' messages (e.g. the initial AI greeting).
+    const rawHistory = chatHistory
       .filter(m => m.text && m.text.trim())
       .map(m => ({
         role:  m.role === 'model' ? 'model' : 'user',
         parts: [{ text: m.text }],
       }));
+
+    // Drop leading model turns so the first entry is always 'user'
+    while (rawHistory.length > 0 && rawHistory[0].role === 'model') {
+      rawHistory.shift();
+    }
+    const history = rawHistory;
 
     const chat  = model.startChat({ history });
     const result = await chat.sendMessage(userMessage);

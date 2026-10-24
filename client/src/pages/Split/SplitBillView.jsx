@@ -1,133 +1,133 @@
 import React, { useState, useMemo } from 'react';
-import { Scissors, Plus, Trash2, Equal, CheckCircle2 } from 'lucide-react';
+import { Scissors, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 
-const C = {
-  surface:'#0d1526', raised:'#111e33', hover:'#172238', border:'#1a2d47', borderHi:'#233d5e',
-  txt:'#dce8f5', txt2:'#7a98b8', txt3:'#3f5977',
-  accent:'#5b6ff0', green:'#22d3a0', red:'#f05b7c', amber:'#f0a533',
-};
-const INPUT = { width:'100%', background:C.raised, color:C.txt, border:`1.5px solid ${C.borderHi}`, borderRadius:10, padding:'11px 14px', fontSize:15, fontFamily:'Inter,sans-serif', outline:'none' };
-const LABEL = { display:'block', fontSize:11, fontWeight:700, letterSpacing:'.07em', textTransform:'uppercase', color:C.txt3, marginBottom:6 };
+const FIELD = { width:'100%', padding:'10px 13px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:14, color:'#1e293b', background:'#fff', fontFamily:'Inter,sans-serif', outline:'none' };
+const LABEL = { display:'block', fontSize:12, fontWeight:600, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:'.04em' };
+const focus = e => e.target.style.borderColor='#6366f1';
+const blur  = e => e.target.style.borderColor='#e2e8f0';
 
-const SplitBillView = ({ categories = [], addTransaction }) => {
+export default function SplitBillView({ categories = [], addTransaction }) {
   const [amount,       setAmount]       = useState('');
-  const [description,  setDescription]  = useState('');
+  const [desc,         setDesc]         = useState('');
   const [date,         setDate]         = useState(() => new Date().toISOString().split('T')[0]);
-  const [categoryId,   setCategoryId]   = useState('');
-  const [participants, setParticipants] = useState([{ name:'Person 1', amount:'' }, { name:'Person 2', amount:'' }]);
+  const [catId,        setCatId]        = useState('');
+  const [participants, setParticipants] = useState([{ name:'Person 1',amount:'' },{ name:'Person 2',amount:'' }]);
   const [error,        setError]        = useState('');
   const [submitting,   setSubmitting]   = useState(false);
   const [success,      setSuccess]      = useState(false);
 
-  const totalAssigned = useMemo(() => participants.reduce((s, p) => s + (Number(p.amount) || 0), 0), [participants]);
-  const remaining = Number(amount || 0) - totalAssigned;
+  const totalAssigned = useMemo(() => participants.reduce((s,p) => s+(Number(p.amount)||0), 0), [participants]);
+  const remaining     = Number(amount||0) - totalAssigned;
 
-  const addRow    = () => setParticipants(p => [...p, { name:`Person ${p.length + 1}`, amount:'' }]);
-  const removeRow = (i) => setParticipants(p => p.filter((_, idx) => idx !== i));
-  const updateRow = (i, key, val) => setParticipants(p => { const n=[...p]; n[i]={...n[i],[key]:val}; return n; });
+  const addRow    = ()    => setParticipants(p => [...p, { name:`Person ${p.length+1}`, amount:'' }]);
+  const removeRow = i     => setParticipants(p => p.filter((_,idx) => idx!==i));
+  const updateRow = (i,k,v) => setParticipants(p => { const n=[...p]; n[i]={...n[i],[k]:v}; return n; });
 
   const equalSplit = () => {
     const total = Number(amount);
     if (!total || !participants.length) return;
-    const each = +(total / participants.length).toFixed(2);
-    const adj  = +(total - each * participants.length).toFixed(2);
-    setParticipants(p => p.map((x,i) => ({ ...x, amount: String(i===0 ? each+adj : each) })));
+    const each = +(total/participants.length).toFixed(2);
+    const adj  = +(total - each*participants.length).toFixed(2);
+    setParticipants(p => p.map((x,i) => ({ ...x, amount: String(i===0?each+adj:each) })));
   };
 
-  const handleSubmit = async (e) => {
+  const submit = async e => {
     e.preventDefault(); setError(''); setSuccess(false);
     const total = Number(amount);
-    if (!total || !description || !date || !categoryId) { setError('Please fill all required fields'); return; }
-    if (participants.length < 2) { setError('Add at least two participants'); return; }
-    if (Math.abs(totalAssigned - total) > 0.01) { setError(`Amounts must sum to ₹${total.toFixed(2)} — currently ₹${totalAssigned.toFixed(2)}`); return; }
+    if (!total || !desc || !date || !catId) { setError('Fill all required fields'); return; }
+    if (participants.length < 2)            { setError('At least 2 participants needed'); return; }
+    if (Math.abs(totalAssigned - total) > 0.01) { setError(`Amounts must sum to ₹${total.toFixed(2)} (currently ₹${totalAssigned.toFixed(2)})`); return; }
     setSubmitting(true);
     try {
-      const cat = categories.find(c => c.id === Number(categoryId));
+      const cat = categories.find(c => c.id===Number(catId));
       for (const p of participants) {
-        await addTransaction({ amount: Number(p.amount)||0, description:`${description} (${p.name})`, date, category: cat?.name||'Others', categoryId: Number(categoryId), type: cat?.type||'expense', notes:`Split among ${participants.length} people` });
+        await addTransaction({ amount:Number(p.amount)||0, description:`${desc} (${p.name})`, date, category:cat?.name||'Others', categoryId:Number(catId), type:'expense', notes:`Split among ${participants.length} people` });
       }
       setSuccess(true);
-      setAmount(''); setDescription(''); setCategoryId('');
-      setParticipants([{ name:'Person 1', amount:'' }, { name:'Person 2', amount:'' }]);
+      setAmount(''); setDesc(''); setCatId('');
+      setParticipants([{ name:'Person 1',amount:'' },{ name:'Person 2',amount:'' }]);
       setTimeout(() => setSuccess(false), 3000);
     } finally { setSubmitting(false); }
   };
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:'1rem', fontFamily:'Inter,sans-serif' }}>
       <div>
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
-          <div style={{ width:38, height:38, borderRadius:10, background:`${C.accent}18`, border:`1px solid ${C.accent}30`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <Scissors size={18} color={C.accent} />
-          </div>
-          <h2 style={{ fontSize:22, fontWeight:800, color:C.txt }}>Split Bill</h2>
-        </div>
-        <p style={{ fontSize:13, color:C.txt3 }}>Divide expenses fairly among friends</p>
+        <h2 style={{ fontSize:18, fontWeight:800, color:'#1e293b' }}>Split Bill</h2>
+        <p style={{ fontSize:12, color:'#94a3b8', marginTop:2 }}>Divide an expense among multiple people</p>
       </div>
 
       {success && (
-        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'12px 16px', borderRadius:12, background:'rgba(34,211,160,.1)', border:`1px solid rgba(34,211,160,.3)`, color:C.green, fontWeight:600, fontSize:14 }}>
-          <CheckCircle2 size={16}/> Split transactions saved!
+        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', borderRadius:10, background:'#f0fdf4', border:'1px solid #bbf7d0', color:'#16a34a', fontWeight:600, fontSize:13 }}>
+          <CheckCircle2 size={15}/> Split transactions saved!
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:18, padding:'1.5rem', display:'flex', flexDirection:'column', gap:'1.25rem' }}>
-        {error && <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(240,91,124,.1)', border:`1px solid rgba(240,91,124,.3)`, color:C.red, fontSize:13 }}>⚠ {error}</div>}
+      <form onSubmit={submit} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:16, padding:'1.4rem', display:'flex', flexDirection:'column', gap:16 }}>
+        {error && <div style={{ padding:'8px 12px', background:'#fef2f2', border:'1px solid #fecaca', color:'#dc2626', borderRadius:8, fontSize:13 }}>⚠ {error}</div>}
 
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-          <div><label style={LABEL}>Total Amount (₹)</label><input style={INPUT} type="number" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00" required /></div>
-          <div><label style={LABEL}>Date</label><input style={INPUT} type="date" value={date} onChange={e=>setDate(e.target.value)} required /></div>
+          <div>
+            <label style={LABEL}>Total Amount (₹)</label>
+            <input style={FIELD} type="number" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00" onFocus={focus} onBlur={blur} required/>
+          </div>
+          <div>
+            <label style={LABEL}>Date</label>
+            <input style={FIELD} type="date" value={date} onChange={e=>setDate(e.target.value)} onFocus={focus} onBlur={blur} required/>
+          </div>
         </div>
 
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-          <div><label style={LABEL}>Description</label><input style={INPUT} type="text" value={description} onChange={e=>setDescription(e.target.value)} placeholder="e.g. Dinner at ABC" required /></div>
+          <div>
+            <label style={LABEL}>Description</label>
+            <input style={FIELD} type="text" value={desc} onChange={e=>setDesc(e.target.value)} placeholder="e.g. Dinner" onFocus={focus} onBlur={blur} required/>
+          </div>
           <div>
             <label style={LABEL}>Category</label>
-            <select style={INPUT} value={categoryId} onChange={e=>setCategoryId(e.target.value)} required>
-              <option value="" disabled>Select category</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <select style={FIELD} value={catId} onChange={e=>setCatId(e.target.value)} onFocus={focus} onBlur={blur} required>
+              <option value="">Select…</option>
+              {categories.filter(c=>c.type==='expense').map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
         </div>
 
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', background:C.raised, borderRadius:10, border:`1px solid ${C.borderHi}` }}>
+        {/* Running total */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', background:'#f8fafc', borderRadius:10, border:'1px solid #e2e8f0' }}>
           <div style={{ fontSize:13 }}>
-            <span style={{ color:C.txt3 }}>Assigned: </span><span style={{ color:C.txt, fontWeight:600 }}>₹{totalAssigned.toFixed(2)}</span>
-            <span style={{ color:C.txt3, marginLeft:16 }}>Remaining: </span>
-            <span style={{ color: remaining<0?C.red:remaining===0?C.green:C.amber, fontWeight:700 }}>₹{remaining.toFixed(2)}</span>
+            <span style={{ color:'#64748b' }}>Assigned: </span><strong style={{ color:'#1e293b' }}>₹{totalAssigned.toFixed(2)}</strong>
+            <span style={{ color:'#64748b', marginLeft:16 }}>Remaining: </span>
+            <strong style={{ color: remaining<0?'#ef4444':remaining===0?'#10b981':'#f59e0b' }}>₹{remaining.toFixed(2)}</strong>
           </div>
-          <button type="button" onClick={equalSplit} style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 12px', borderRadius:8, border:`1.5px solid ${C.accent}55`, background:`${C.accent}15`, color:C.accent, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-            <Equal size={13}/> Equal Split
+          <button type="button" onClick={equalSplit} style={{ padding:'6px 12px', borderRadius:8, border:'1.5px solid #c7d2fe', background:'#eef2ff', color:'#6366f1', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+            Equal Split
           </button>
         </div>
 
+        {/* Participants */}
         <div>
           <label style={LABEL}>Participants</label>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {participants.map((p, i) => (
-              <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 130px 38px', gap:8, alignItems:'flex-end' }}>
-                <input style={INPUT} type="text" value={p.name} onChange={e=>updateRow(i,'name',e.target.value)} placeholder={`Person ${i+1}`} />
-                <input style={INPUT} type="number" step="0.01" value={p.amount} onChange={e=>updateRow(i,'amount',e.target.value)} placeholder="0.00" />
-                <button type="button" onClick={()=>removeRow(i)} disabled={participants.length<=2}
-                  style={{ height:44, borderRadius:8, border:'none', background:`${C.red}18`, color:C.red, cursor:participants.length<=2?'not-allowed':'pointer', opacity:participants.length<=2?.35:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <Trash2 size={14}/>
+            {participants.map((p,i) => (
+              <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 130px 36px', gap:8 }}>
+                <input style={FIELD} type="text" value={p.name} onChange={e=>updateRow(i,'name',e.target.value)} placeholder={`Person ${i+1}`} onFocus={focus} onBlur={blur}/>
+                <input style={FIELD} type="number" step="0.01" value={p.amount} onChange={e=>updateRow(i,'amount',e.target.value)} placeholder="0.00" onFocus={focus} onBlur={blur}/>
+                <button type="button" onClick={()=>removeRow(i)} disabled={participants.length<=2} style={{ height:42, borderRadius:8, border:'1px solid #fee2e2', background:'#fef2f2', color:'#ef4444', cursor:participants.length<=2?'not-allowed':'pointer', opacity:participants.length<=2?.4:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <Trash2 size={13}/>
                 </button>
               </div>
             ))}
           </div>
-          <button type="button" onClick={addRow} style={{ marginTop:10, display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:9, border:`1.5px solid ${C.borderHi}`, background:C.raised, color:C.txt2, fontSize:13, fontWeight:600, cursor:'pointer' }}>
-            <Plus size={13}/> Add Person
+          <button type="button" onClick={addRow} style={{ marginTop:8, display:'flex', alignItems:'center', gap:5, padding:'7px 12px', borderRadius:9, border:'1.5px solid #e2e8f0', background:'#f8fafc', color:'#64748b', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+            <Plus size={12}/> Add Person
           </button>
         </div>
 
         <div style={{ display:'flex', justifyContent:'flex-end' }}>
-          <button type="submit" disabled={submitting} style={{ padding:'11px 28px', borderRadius:10, border:'none', background:`linear-gradient(135deg,${C.accent},#4254db)`, color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', opacity:submitting?.6:1 }}>
+          <button type="submit" disabled={submitting} style={{ padding:'11px 28px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', opacity:submitting?.6:1 }}>
             {submitting ? 'Saving…' : 'Create Split'}
           </button>
         </div>
       </form>
     </div>
   );
-};
-
-export default SplitBillView;
+}

@@ -133,6 +133,14 @@ export const deleteGoal = async (userId, id) => {
   set(goalKey(userId), goals.filter(g => g.id !== id));
 };
 
+export const updateUserName = async (userId, name) => {
+  const users = getUsers();
+  const updated = users.map(u => u.id === userId ? { ...u, name } : u);
+  saveUsers(updated);
+  const session = getSession();
+  if (session?.id === userId) saveSession({ ...session, name });
+};
+
 export const contributeGoal = async (userId, id, amount) => {
   const goals = get(goalKey(userId), []);
   const updated = goals.map(g =>

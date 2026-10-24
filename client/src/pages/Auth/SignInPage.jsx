@@ -1,232 +1,162 @@
-import React, { useState, lazy, Suspense } from 'react';
-import { Mail, Lock, User, Loader, TrendingUp, ShieldCheck, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { Mail, Lock, User, Eye, EyeOff, TrendingUp, Shield, Zap } from 'lucide-react';
 import { login, register, guest } from '../../services/firebaseService';
-import { useWebGLSupport } from '../../hooks/useWebGLSupport';
 
-// Lazy-load 3D hero — never blocks the form
-const SignInHero = lazy(() => import('../../components/3d/SignInHero'));
+const Field = ({ label, type, value, onChange, placeholder, icon: Icon, right }) => (
+  <div style={{ marginBottom:16 }}>
+    <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#64748b', marginBottom:6, textTransform:'uppercase', letterSpacing:'.05em' }}>{label}</label>
+    <div style={{ position:'relative' }}>
+      {Icon && <Icon size={16} color="#94a3b8" style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)' }}/>}
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          width:'100%', padding: Icon ? '11px 40px' : '11px 14px',
+          paddingLeft: Icon ? 38 : 14,
+          paddingRight: right ? 44 : 14,
+          border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:15,
+          color:'#1e293b', background:'#fff', outline:'none',
+          transition:'border-color 0.15s',
+          fontFamily:'Inter,sans-serif',
+        }}
+        onFocus={e => e.target.style.borderColor='#6366f1'}
+        onBlur={e => e.target.style.borderColor='#e2e8f0'}
+      />
+      {right && <div style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)' }}>{right}</div>}
+    </div>
+  </div>
+);
 
-const SignInPage = ({ onLogin }) => {
-  const [email,      setEmail]      = useState('');
-  const [password,   setPassword]   = useState('');
-  const [name,       setName]       = useState('');
-  const [isRegister, setIsRegister] = useState(false);
-  const [error,      setError]      = useState('');
-  const [loading,    setLoading]    = useState(false);
+export default function SignInPage({ onLogin }) {
+  const [mode,      setMode]      = useState('login');
+  const [email,     setEmail]     = useState('');
+  const [password,  setPassword]  = useState('');
+  const [name,      setName]      = useState('');
+  const [showPw,    setShowPw]    = useState(false);
+  const [error,     setError]     = useState('');
+  const [loading,   setLoading]   = useState(false);
 
-  const { supported: webglOk } = useWebGLSupport();
-
-  const handleEmailAuth = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+  const submit = async e => {
+    e.preventDefault(); setError(''); setLoading(true);
     try {
-      const user = isRegister
-        ? await register(email, password, name)
-        : await login(email, password);
+      const user = mode === 'login'
+        ? await login(email, password)
+        : await register(email, password, name);
       onLogin(user);
-    } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError(err.message); }
+    setLoading(false);
   };
 
-  const handleGuest = async () => {
-    setError('');
+  const loginAsGuest = async () => {
     setLoading(true);
-    try {
-      const user = await guest();
-      onLogin(user);
-    } catch (err) {
-      setError(err.message || 'Something went wrong.');
-    } finally {
-      setLoading(false);
-    }
+    try { const u = await guest(); onLogin(u); } catch (err) { setError(err.message); }
+    setLoading(false);
   };
 
   const features = [
-    { icon: TrendingUp,  text: 'Track income & expenses'          },
-    { icon: ShieldCheck, text: 'Stored privately in your browser'  },
-    { icon: Zap,         text: 'AI-powered insights'              },
+    { icon: TrendingUp, color:'#10b981', label:'Smart Charts', sub:'Visual financial insights' },
+    { icon: Shield,     color:'#6366f1', label:'100% Private', sub:'Data stays on your device' },
+    { icon: Zap,        color:'#f59e0b', label:'AI Advisor',   sub:'Powered by Groq Llama 3' },
   ];
 
   return (
-    <div className="min-h-screen bg-bf-bg flex flex-col md:flex-row">
-
-      {/* ── Left panel — 3D hero (hidden on mobile) ──────────────────────── */}
-      <div className="hidden md:flex md:w-1/2 flex-col justify-center items-center p-12 relative overflow-hidden"
-           style={{ background: 'linear-gradient(135deg,#080e20 0%,#0d1526 60%,#111e33 100%)' }}>
-
-        {/* 3D canvas behind everything */}
-        {webglOk && (
-          <Suspense fallback={null}>
-            <SignInHero />
-          </Suspense>
-        )}
-
-        {/* Static dot grid fallback (always visible, subtle behind 3D) */}
-        <div className="absolute inset-0 opacity-[0.06] pointer-events-none"
-             style={{ backgroundImage: 'radial-gradient(circle,white 1px,transparent 1px)', backgroundSize: '24px 24px' }} />
-
-        {/* Foreground text — sits above the canvas */}
-        <div className="relative z-10 text-center max-w-sm pointer-events-none select-none">
-          <div className="w-20 h-20 rounded-3xl bg-bf-accent flex items-center justify-center text-white text-3xl font-black mx-auto mb-8 shadow-2xl"
-               style={{ boxShadow: '0 0 40px rgba(91,111,240,0.5)' }}>
-            BF
+    <div style={{ minHeight:'100vh', display:'flex', background:'#f8fafc', fontFamily:'Inter,sans-serif' }}>
+      {/* Left panel */}
+      <div style={{ display:'none', flex:1, background:'linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a855f7 100%)', padding:'3rem', flexDirection:'column', justifyContent:'center' }} className="md:flex">
+        <div style={{ maxWidth:400 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:40 }}>
+            <div style={{ width:48, height:48, borderRadius:14, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:900, fontSize:20 }}>B</div>
+            <span style={{ color:'#fff', fontWeight:800, fontSize:22 }}>BudgetFlow</span>
           </div>
-          <h1 className="text-4xl font-black text-bf-txt mb-3 leading-tight">
-            Budget<span style={{ color: 'var(--c-accent)' }}>Flow</span>
-          </h1>
-          <p className="text-bf-txt2 text-lg mb-10 leading-relaxed">
-            Your personal finance companion. Track, analyse, and grow your wealth.
+          <h2 style={{ color:'#fff', fontSize:32, fontWeight:800, lineHeight:1.2, marginBottom:12 }}>Take control of your finances</h2>
+          <p style={{ color:'rgba(255,255,255,0.75)', fontSize:15, lineHeight:1.6, marginBottom:40 }}>
+            Track spending, set goals, split bills, and get AI-powered advice — all in one place.
           </p>
-
-          <div className="space-y-4 text-left">
-            {features.map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                     style={{ background: 'rgba(91,111,240,0.15)', border: '1px solid rgba(91,111,240,0.3)' }}>
-                  <Icon className="w-4 h-4" style={{ color: 'var(--c-accent)' }} />
+          <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+            {features.map(({ icon: Icon, color, label, sub }) => (
+              <div key={label} style={{ display:'flex', alignItems:'center', gap:14 }}>
+                <div style={{ width:44, height:44, borderRadius:12, background:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <Icon size={20} color="#fff"/>
                 </div>
-                <span className="text-bf-txt2 text-sm font-medium">{text}</span>
+                <div>
+                  <p style={{ color:'#fff', fontWeight:700, fontSize:14 }}>{label}</p>
+                  <p style={{ color:'rgba(255,255,255,0.65)', fontSize:13 }}>{sub}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ── Right panel — form ────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center p-6 md:p-12">
-
-        {/* Mobile logo */}
-        <div className="md:hidden flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-bf-accent flex items-center justify-center text-white text-xl font-black mb-3 shadow-xl">
-            BF
+      {/* Right panel */}
+      <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem' }}>
+        <div style={{ width:'100%', maxWidth:420 }}>
+          {/* Mobile logo */}
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:32 }} className="md:hidden">
+            <div style={{ width:40, height:40, borderRadius:12, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:900, fontSize:18 }}>B</div>
+            <span style={{ fontWeight:800, fontSize:20, color:'#1e293b' }}>BudgetFlow</span>
           </div>
-          <h1 className="text-2xl font-black text-bf-txt">BudgetFlow</h1>
-        </div>
 
-        <div className="w-full max-w-sm">
-          <h2 className="text-2xl font-bold text-bf-txt mb-1">
-            {isRegister ? 'Create your account' : 'Welcome back'}
+          <h2 style={{ fontSize:26, fontWeight:800, color:'#1e293b', marginBottom:6 }}>
+            {mode === 'login' ? 'Welcome back!' : 'Create account'}
           </h2>
-          <p className="text-bf-txt2 text-sm mb-7">
-            {isRegister
-              ? 'Start tracking your finances today'
-              : 'Sign in to continue to BudgetFlow'}
+          <p style={{ color:'#64748b', fontSize:14, marginBottom:28 }}>
+            {mode === 'login' ? 'Sign in to your BudgetFlow account' : 'Start tracking your finances today'}
           </p>
 
-          {/* Error */}
           {error && (
-            <div className="mb-5 flex items-start gap-2.5 text-sm px-4 py-3 rounded-xl"
-                 style={{ background: 'rgba(240,91,124,0.1)', border: '1px solid rgba(240,91,124,0.3)', color: 'var(--c-red)' }}>
-              <span className="shrink-0 mt-0.5">⚠️</span>
-              <span>{error}</span>
+            <div style={{ padding:'10px 14px', borderRadius:10, background:'#fef2f2', border:'1px solid #fecaca', color:'#dc2626', fontSize:13, marginBottom:16 }}>
+              ⚠ {error}
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleEmailAuth} className="space-y-4">
-            {isRegister && (
-              <div>
-                <label className="block text-xs font-semibold text-bf-txt2 uppercase tracking-wider mb-1.5">
-                  Full Name
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bf-txt3" />
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="Your name"
-                    style={{ paddingLeft: '2.5rem', paddingRight: '1rem', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}
-                  />
-                </div>
-              </div>
+          <form onSubmit={submit}>
+            {mode === 'register' && (
+              <Field label="Full Name" type="text" value={name} onChange={setName} placeholder="John Doe" icon={User} />
             )}
+            <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" icon={Mail} />
+            <Field label="Password" type={showPw ? 'text' : 'password'} value={password} onChange={setPassword} placeholder="••••••••" icon={Lock}
+              right={
+                <button type="button" onClick={() => setShowPw(p => !p)} style={{ border:'none', background:'none', cursor:'pointer', color:'#94a3b8' }}>
+                  {showPw ? <EyeOff size={16}/> : <Eye size={16}/>}
+                </button>
+              }
+            />
 
-            <div>
-              <label className="block text-xs font-semibold text-bf-txt2 uppercase tracking-wider mb-1.5">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bf-txt3" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  placeholder="you@example.com"
-                  style={{ paddingLeft: '2.5rem', paddingRight: '1rem', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-bf-txt2 uppercase tracking-wider mb-1.5">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bf-txt3" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  placeholder="••••••••"
-                  style={{ paddingLeft: '2.5rem', paddingRight: '1rem', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}
-                />
-              </div>
-              {isRegister && <p className="text-bf-txt3 text-xs mt-1.5">Minimum 6 characters</p>}
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 mt-2 focus-bf"
-              style={{
-                background: 'linear-gradient(135deg,var(--c-accent),var(--c-accent-2))',
-                boxShadow: '0 4px 20px rgba(91,111,240,0.35)',
-                opacity: loading ? 0.6 : 1,
-                cursor: loading ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {loading && <Loader className="w-4 h-4 animate-spin" />}
-              {isRegister ? 'Create Account' : 'Sign In'}
+            <button type="submit" disabled={loading} style={{
+              width:'100%', padding:'13px', borderRadius:10, border:'none',
+              background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff',
+              fontSize:15, fontWeight:700, cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.7 : 1, marginTop:4,
+            }}>
+              {loading ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-bf-border" />
-            <span className="text-bf-txt3 text-xs">or</span>
-            <div className="flex-1 h-px bg-bf-border" />
+          <div style={{ display:'flex', alignItems:'center', gap:12, margin:'16px 0' }}>
+            <div style={{ flex:1, height:1, background:'#e2e8f0' }}/>
+            <span style={{ fontSize:12, color:'#94a3b8', fontWeight:500 }}>OR</span>
+            <div style={{ flex:1, height:1, background:'#e2e8f0' }}/>
           </div>
 
-          {/* Guest */}
-          <button
-            onClick={handleGuest}
-            disabled={loading}
-            className="w-full py-3 border border-bf-hi text-bf-txt2 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 hover:bg-bf-hover focus-bf"
-            style={{ background: 'var(--c-raised)', opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
-          >
-            <User className="w-4 h-4 text-bf-txt3" />
-            Continue as Guest
+          <button onClick={loginAsGuest} disabled={loading} style={{
+            width:'100%', padding:'11px', borderRadius:10, border:'1.5px solid #e2e8f0',
+            background:'#fff', color:'#475569', fontSize:14, fontWeight:600, cursor:'pointer',
+          }}>
+            Continue as Guest (no sign-up)
           </button>
 
-          {/* Toggle */}
-          <p className="text-center text-sm text-bf-txt3 mt-6">
-            {isRegister ? 'Already have an account? ' : "Don't have an account? "}
-            <button
-              onClick={() => { setIsRegister(p => !p); setError(''); }}
-              className="font-semibold transition-colors focus-bf"
-              style={{ color: 'var(--c-accent)' }}
-            >
-              {isRegister ? 'Sign In' : 'Sign Up'}
+          <p style={{ textAlign:'center', fontSize:13, color:'#64748b', marginTop:20 }}>
+            {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+            <button onClick={() => { setMode(m => m==='login'?'register':'login'); setError(''); }}
+              style={{ border:'none', background:'none', color:'#6366f1', fontWeight:700, cursor:'pointer', fontSize:13 }}>
+              {mode === 'login' ? 'Sign up free' : 'Sign in'}
             </button>
           </p>
         </div>
       </div>
     </div>
   );
-};
-
-export default SignInPage;
+}
